@@ -1,0 +1,82 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Departments & Teams — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; Departments{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Departments & Teams</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Organize BreakThru workforce into departments and functional teams for targeted assessment assignments.</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-3" style="gap: 2rem;">
+  <!-- Department Table -->
+  <div style="grid-column: span 2;">
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Department Name</th>
+            <th>Employees</th>
+            <th>Teams</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dept in departments %}
+            <tr>
+              <td><span class="badge badge-info">{{ dept.code }}</span></td>
+              <td><strong>{{ dept.name }}</strong></td>
+              <td>{{ dept.members.count }}</td>
+              <td>{{ dept.teams.count }}</td>
+              <td>
+                {% if dept.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-danger">Inactive</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                No departments defined yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create Department Form -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Add Department</h3>
+      </div>
+      <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Department Name *</label>
+          {{ form.name }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department Code *</label>
+          {{ form.code }}
+          <div class="form-help">e.g. ENG, HR, SALES, OPERATIONS</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          {{ form.description }}
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Department</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'base/base.html' %}
+
+{% block title %}User Profile — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}User Profile{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+      <h2 class="card-title">Employee Profile</h2>
+      <span class="badge badge-info">{{ user.get_role_display }}</span>
+    </div>
+
+    <div style="display: flex; gap: 2rem; align-items: center; margin-bottom: 2rem;">
+      <div class="user-avatar" style="width: 72px; height: 72px; font-size: 2rem;">
+        {{ user.first_name|default:user.username|slice:":1"|upper }}
+      </div>
+      <div>
+        <h3 style="font-size: 1.35rem;">{{ user.get_full_name|default:user.username }}</h3>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">{{ user.email }}</p>
+        {% if user.employee_id %}
+          <div style="margin-top: 0.25rem;">
+            <span class="badge badge-success">Employee ID: {{ user.employee_id }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2" style="gap: 1.25rem;">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Department</div>
+        <div style="font-size: 1rem; font-weight: 600; margin-top: 0.2rem;">{{ user.department.name|default:"Not Assigned" }}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Team</div>
+        <div style="font-size: 1rem; font-weight: 600; margin-top: 0.2rem;">{{ user.team.name|default:"General" }}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Designation</div>
+        <div style="font-size: 1rem; font-weight: 600; margin-top: 0.2rem;">{{ user.designation|default:"Staff Member" }}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Date Joined</div>
+        <div style="font-size: 1rem; font-weight: 600; margin-top: 0.2rem;">{{ user.date_joined|date:"M d, Y" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Security & Credentials</h3>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+      To change your password or update your contact details, please use the button below or contact your system administrator.
+    </p>
+    <a href="{% url 'accounts:change_password' %}" class="btn btn-secondary">
+      🔒 Change Password
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ COMPANY_NAME }} Assessments{% endblock %}</title>
+  <meta name="description" content="BreakThru internal learning and assessment platform.">
+  <link rel="stylesheet" href="/static/css/portal.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="auth-page">
+  <main class="auth-card" id="main-content">
+    {% if messages %}
+      <div class="messages-container" style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} alert-auto-dismiss" role="alert">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    <footer class="auth-footer">
+      &copy; {{ CURRENT_YEAR }} {{ COMPANY_NAME }}. Internal Use Only.
+    </footer>
+  </main>
+
+  <script src="/static/js/portal.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

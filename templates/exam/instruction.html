@@ -1,0 +1,74 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Instructions: {{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Instructions{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card" style="padding: 2.25rem;">
+    <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+      <span class="badge badge-info" style="margin-bottom: 0.5rem;">{{ assessment.category.name|default:"Corporate Assessment" }}</span>
+      <h1 style="font-size: 1.85rem; margin-bottom: 0.5rem;">{{ assessment.title }}</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">Assessment Code: <strong>{{ assessment.code }}</strong></p>
+    </div>
+
+    <!-- Parameter Badges -->
+    <div class="grid grid-cols-4" style="gap: 1rem; margin-bottom: 2rem;">
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Duration</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 0.25rem;">{{ assessment.duration_minutes }} Mins</div>
+      </div>
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Questions</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 0.25rem;">{{ assessment.assessment_questions.count }}</div>
+      </div>
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Pass Mark</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--success); margin-top: 0.25rem;">{{ assessment.pass_mark_percentage }}%</div>
+      </div>
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Attempts Allowed</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem;">
+          {% if assessment.max_attempts > 0 %}{{ assessment.max_attempts }}{% else %}Unlimited{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Instructions Content -->
+    <div style="margin-bottom: 2rem;">
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Important Candidate Instructions:</h3>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1.25rem; line-height: 1.6; font-size: 0.92rem; color: var(--text-main);">
+        {{ assessment.instructions|linebreaks }}
+      </div>
+    </div>
+
+    <!-- Integrity & Rules Notice -->
+    <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 2rem;">
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Testing Policies:</h4>
+      <ul style="padding-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;">
+        <li><strong>Autosave:</strong> Every response is securely autosaved to BreakThru servers in real-time. If you accidentally reload your page, your progress is fully retained.</li>
+        <li><strong>Server-Authoritative Timer:</strong> The countdown clock runs on the server. When time expires, your test will be finalized automatically.</li>
+        {% if assessment.negative_marking %}
+          <li style="color: var(--danger);"><strong>Negative Marking:</strong> Incorrect answers incur a penalty of {{ assessment.negative_mark_penalty }} marks.</li>
+        {% else %}
+          <li><strong>No Penalty:</strong> There is no negative marking penalty for incorrect answers.</li>
+        {% endif %}
+        {% if not assessment.allow_backtracking %}
+          <li style="color: var(--warning);"><strong>Linear Navigation:</strong> You cannot return to previous questions once you advance.</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <form method="POST" onsubmit="return confirm('Ready to begin? Your countdown timer will start immediately.');">
+      {% csrf_token %}
+      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg" style="box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
+          🚀 Start Assessment Now
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

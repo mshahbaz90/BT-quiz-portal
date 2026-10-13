@@ -1,0 +1,104 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; <a href="{% url 'accounts:employee_list' %}">Employees</a> &rsaquo; {{ title }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">{{ title }}</h2>
+      <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline btn-sm">&larr; Back to List</a>
+    </div>
+
+    <form method="POST">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          {{ form.username }}
+          {% if form.username.errors %}<div class="form-help" style="color: var(--danger);">{{ form.username.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Employee ID *</label>
+          {{ form.employee_id }}
+          {% if form.employee_id.errors %}<div class="form-help" style="color: var(--danger);">{{ form.employee_id.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          {{ form.first_name }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          {{ form.last_name }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          {{ form.email }}
+          {% if form.email.errors %}<div class="form-help" style="color: var(--danger);">{{ form.email.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          {{ form.role }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          {{ form.department }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Team</label>
+          {{ form.team }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Designation / Title</label>
+          {{ form.designation }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          {{ form.phone }}
+        </div>
+      </div>
+
+      <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Authentication & Onboarding</h3>
+        <div class="form-group">
+          <label class="form-label">{{ form.initial_password.label }}</label>
+          {{ form.initial_password }}
+          <div class="form-help">{{ form.initial_password.help_text }}</div>
+        </div>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          {{ form.require_password_change }}
+          <span style="font-size: 0.9rem;">{{ form.require_password_change.label }}</span>
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">Create Employee Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

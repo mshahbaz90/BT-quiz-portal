@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %} — {{ COMPANY_NAME }} Assessments</title>
+  <meta name="description" content="BreakThru internal learning and assessment platform.">
+  <link rel="stylesheet" href="/static/css/portal.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="{% url 'core:dashboard' %}" class="brand-badge">
+          <div class="brand-logo-icon">BT</div>
+          <span>{{ COMPANY_NAME }}</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-category">Main</div>
+        <a href="{% url 'core:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+
+        <!-- Candidate / Employee Navigation -->
+        <a href="{% url 'assessments:employee_list' %}" class="nav-link {% if 'employee' in request.path and 'assessments' in request.path %}active{% endif %}" id="nav-my-assessments">
+          <span class="nav-icon">📝</span>
+          <span>My Assessments</span>
+        </a>
+        <a href="{% url 'certificates:my_certificates' %}" class="nav-link {% if 'certificates' in request.path %}active{% endif %}" id="nav-my-certificates">
+          <span class="nav-icon">🏆</span>
+          <span>My Certificates</span>
+        </a>
+
+        <!-- Assessment Management (Trainers & Admins) -->
+        {% if user.is_trainer or user.is_assessment_admin %}
+          <div class="nav-category">Management</div>
+          <a href="{% url 'assessments:assessment_list' %}" class="nav-link {% if request.resolver_match.app_name == 'assessments' and not 'employee' in request.path and not 'questions' in request.path %}active{% endif %}" id="nav-assessments-mgmt">
+            <span class="nav-icon">📋</span>
+            <span>Assessments</span>
+          </a>
+          <a href="{% url 'assessments:question_bank' %}" class="nav-link {% if 'questions' in request.path %}active{% endif %}" id="nav-question-bank">
+            <span class="nav-icon">💡</span>
+            <span>Question Bank</span>
+          </a>
+          <a href="{% url 'grading:queue' %}" class="nav-link {% if 'grading' in request.path %}active{% endif %}" id="nav-grading-queue">
+            <span class="nav-icon">✍️</span>
+            <span>Grading Queue</span>
+          </a>
+        {% endif %}
+
+        <!-- Organization & Accounts (Admins) -->
+        {% if user.is_super_admin %}
+          <div class="nav-category">Administration</div>
+          <a href="{% url 'accounts:employee_list' %}" class="nav-link {% if 'accounts/employees' in request.path %}active{% endif %}" id="nav-employees">
+            <span class="nav-icon">👥</span>
+            <span>Employees</span>
+          </a>
+          <a href="{% url 'accounts:department_list' %}" class="nav-link {% if 'accounts/departments' in request.path %}active{% endif %}" id="nav-departments">
+            <span class="nav-icon">🏢</span>
+            <span>Departments</span>
+          </a>
+          <a href="{% url 'core:audit_logs' %}" class="nav-link {% if 'audit' in request.path %}active{% endif %}" id="nav-audit-logs">
+            <span class="nav-icon">🛡️</span>
+            <span>Audit Logs</span>
+          </a>
+        {% endif %}
+
+        <!-- Analytics & Reports -->
+        {% if user.is_team_lead or user.is_trainer or user.is_super_admin %}
+          <div class="nav-category">Reports</div>
+          <a href="{% url 'analytics:reports_overview' %}" class="nav-link {% if 'analytics' in request.path %}active{% endif %}" id="nav-reports">
+            <span class="nav-icon">📈</span>
+            <span>Analytics & Reports</span>
+          </a>
+        {% endif %}
+      </nav>
+
+      <!-- Sidebar User Profile Footer -->
+      <div class="sidebar-footer">
+        <div class="user-profile-badge">
+          <div class="user-avatar">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
+          <div style="flex: 1; overflow: hidden;">
+            <div class="user-meta-name">{{ user.get_full_name|default:user.username }}</div>
+            <div class="user-meta-role">{{ user.get_role_display }}</div>
+          </div>
+          <a href="{% url 'accounts:logout' %}" title="Sign Out" style="color: var(--danger); font-size: 1.1rem; padding: 0.25rem;">🚪</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <button id="sidebar-toggle-btn" class="btn btn-outline btn-sm" aria-label="Toggle Navigation" style="display: none;">☰</button>
+          <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: 500;">
+            {% block breadcrumb %}BreakThru Assessments{% endblock %}
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <!-- Theme Switcher -->
+          <button id="theme-toggle-btn" class="btn btn-outline btn-sm" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
+            <span id="theme-icon">🌙</span>
+          </button>
+
+          <!-- Notifications Indicator -->
+          <a href="{% url 'core:notifications' %}" class="btn btn-outline btn-sm" title="Notifications" style="position: relative;">
+            🔔
+            {% if UNREAD_NOTIFICATIONS_COUNT > 0 %}
+              <span style="position: absolute; top: -5px; right: -5px; background: var(--danger); color: #fff; font-size: 0.65rem; border-radius: 999px; padding: 2px 5px; font-weight: 700;">
+                {{ UNREAD_NOTIFICATIONS_COUNT }}
+              </span>
+            {% endif %}
+          </a>
+
+          <!-- Profile Link -->
+          <a href="{% url 'accounts:profile' %}" class="btn btn-secondary btn-sm">
+            👤 My Profile
+          </a>
+        </div>
+      </header>
+
+      <!-- Body Content -->
+      <main class="content-body" id="main-content">
+        {% if messages %}
+          <div class="messages-container" style="margin-bottom: 1.5rem;">
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags|default:'info' }} alert-auto-dismiss" role="alert">
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Global Footer -->
+      <footer style="padding: 1.25rem 2rem; border-top: 1px solid var(--border-light); font-size: 0.8rem; color: var(--text-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div>&copy; {{ CURRENT_YEAR }} {{ COMPANY_NAME }} &bull; <em>{{ COMPANY_TAGLINE }}</em></div>
+        <div>{{ PORTAL_URL }} &bull; Internal Enterprise Portal</div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="/static/js/portal.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

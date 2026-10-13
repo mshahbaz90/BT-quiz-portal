@@ -1,0 +1,58 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Bulk Employee CSV Import — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; <a href="{% url 'accounts:employee_list' %}">Employees</a> &rsaquo; Bulk CSV Import{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+      <h2 class="card-title">Bulk Import Employees</h2>
+      <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline btn-sm">&larr; Back to Employees</a>
+    </div>
+
+    <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+      <div>
+        <strong>CSV Format Requirements:</strong>
+        <p style="margin-top: 0.35rem; font-size: 0.85rem;">
+          Your CSV file must have the following header row:<br>
+          <code style="background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">employee_id,username,email,first_name,last_name,designation,department_code,role</code>
+        </p>
+      </div>
+    </div>
+
+    {% if results %}
+      <div class="card" style="margin-bottom: 1.5rem; background: var(--bg-subtle);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Import Results Summary</h3>
+        <p><strong>Successfully Created:</strong> <span class="badge badge-success">{{ results.success_count }} accounts</span></p>
+        {% if results.errors %}
+          <div style="margin-top: 1rem;">
+            <h4 style="color: var(--danger); font-size: 0.95rem;">Skipped Records ({{ results.errors|length }}):</h4>
+            <ul style="margin-top: 0.5rem; padding-left: 1.25rem; font-size: 0.85rem; color: var(--danger);">
+              {% for err in results.errors %}
+                <li>{{ err }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">{{ form.csv_file.label }}</label>
+        {{ form.csv_file }}
+        <div class="form-help">{{ form.csv_file.help_text }}</div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+        <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">Upload and Process CSV</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

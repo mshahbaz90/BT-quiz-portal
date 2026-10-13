@@ -1,0 +1,129 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Employee Directory — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; Employees ({{ total_count }}){% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Employee Management</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Manage internal employee accounts, roles, access permissions, and account status.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{% url 'accounts:export_employees' %}" class="btn btn-outline">📥 Export CSV</a>
+    <a href="{% url 'accounts:bulk_import' %}" class="btn btn-secondary">📂 Bulk CSV Import</a>
+    <a href="{% url 'accounts:employee_create' %}" class="btn btn-primary">➕ New Employee</a>
+  </div>
+</div>
+
+<!-- Search & Filters -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+  <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 2; min-width: 220px;">
+      <label class="form-label">Search</label>
+      <input type="text" name="q" value="{{ query }}" placeholder="Search by name, username, employee ID, email..." class="form-input">
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <label class="form-label">Role</label>
+      <select name="role" class="form-select">
+        <option value="">All Roles</option>
+        {% for r_val, r_label in roles %}
+          <option value="{{ r_val }}" {% if role_filter == r_val %}selected{% endif %}>{{ r_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <label class="form-label">Department</label>
+      <select name="dept" class="form-select">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+          <option value="{{ dept.id }}" {% if dept_filter == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary" style="height: 42px;">Filter</button>
+      <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline" style="height: 42px;">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Employee Table -->
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Employee ID</th>
+        <th>Employee Name</th>
+        <th>Username / Email</th>
+        <th>Role</th>
+        <th>Department</th>
+        <th>Status</th>
+        <th style="text-align: right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in page_obj %}
+        <tr>
+          <td>
+            <strong>{{ emp.employee_id|default:"—" }}</strong>
+          </td>
+          <td>
+            <div style="font-weight: 600;">{{ emp.get_full_name|default:emp.username }}</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">{{ emp.designation|default:"Staff" }}</div>
+          </td>
+          <td>
+            <div>{{ emp.username }}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">{{ emp.email }}</div>
+          </td>
+          <td>
+            <span class="badge badge-info">{{ emp.get_role_display }}</span>
+          </td>
+          <td>{{ emp.department.name|default:"—" }}</td>
+          <td>
+            {% if emp.is_active %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-danger">Suspended</span>
+            {% endif %}
+          </td>
+          <td style="text-align: right;">
+            {% if emp != request.user %}
+              <form method="POST" action="{% url 'accounts:employee_toggle_status' emp.id %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to change this employee status?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline btn-sm" style="color: {% if emp.is_active %}var(--danger){% else %}var(--success){% endif %};">
+                  {% if emp.is_active %}Suspend{% else %}Activate{% endif %}
+                </button>
+              </form>
+            {% else %}
+              <span style="font-size: 0.8rem; color: var(--text-subtle);">(You)</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No employees found matching your criteria.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&role={{ role_filter }}&dept={{ dept_filter }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+    {% endif %}
+    <span style="display: flex; align-items: center; padding: 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&role={{ role_filter }}&dept={{ dept_filter }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends 'base/base.html' %}
+
+{% block title %}My Assessments & Progress — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}My Learning & Assessment Hub{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.75rem;">Welcome, {{ user.first_name|default:user.username }}</h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">Track your assigned assessments, review past test results, and download earned certificates.</p>
+</div>
+
+<!-- Active In-Progress Banner -->
+{% if in_progress_attempt %}
+  <div class="card" style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%); border: 2px solid var(--primary); margin-bottom: 2rem; padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Test in progress</span>
+        <h2 style="font-size: 1.35rem; color: var(--text-main);">{{ in_progress_attempt.assessment.title }}</h2>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 0.25rem;">
+          You have an active session started. Time remaining: <strong>{{ in_progress_attempt.seconds_remaining|floatformat:0 }} seconds</strong>.
+        </p>
+      </div>
+      <div>
+        <a href="{% url 'exam:take_assessment' in_progress_attempt.id %}" class="btn btn-primary btn-lg" style="box-shadow: 0 4px 15px rgba(2, 132, 199, 0.5);">
+          ⚡ Resume Assessment Now
+        </a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Assigned Tests Section -->
+<div style="margin-bottom: 2.5rem;">
+  <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.25rem;">
+    <h2 class="card-title" style="font-size: 1.35rem;">Assigned & Available Tests</h2>
+    <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline btn-sm">All Assessments &rarr;</a>
+  </div>
+
+  <div class="grid grid-cols-3">
+    {% for a in pending_assessments %}
+      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span class="badge badge-info">{{ a.category.name|default:"General" }}</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono);">{{ a.code }}</span>
+          </div>
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">{{ a.title }}</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem; line-height: 1.4;">
+            {{ a.description|truncatechars:95|default:"Complete this test to validate your skills." }}
+          </p>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted); padding: 0.75rem 0; border-top: 1px solid var(--border-light); margin-bottom: 1rem;">
+            <span>⏱️ {{ a.duration_minutes }} mins</span>
+            <span>🎯 Pass: {{ a.pass_mark_percentage }}%</span>
+            <span>📝 {{ a.assessment_questions.count }} Qs</span>
+          </div>
+          <a href="{% url 'exam:start_instruction' a.id %}" class="btn btn-primary" style="width: 100%;">
+            Start Test &rarr;
+          </a>
+        </div>
+      </div>
+    {% empty %}
+      <div class="card" style="grid-column: span 3; text-align: center; padding: 3rem; color: var(--text-muted);">
+        <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎉</div>
+        <h3 style="font-size: 1.15rem;">You are all caught up!</h3>
+        <p style="font-size: 0.88rem; margin-top: 0.25rem;">No new assessments are currently pending for your account.</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Past Results & Certificates -->
+<div class="grid grid-cols-2" style="gap: 2rem;">
+  <!-- Recent Attempts -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Recent Test Results</h3>
+      <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline btn-sm">Full History &rarr;</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Assessment</th>
+            <th>Date</th>
+            <th>Score</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att in user_attempts %}
+            <tr>
+              <td><strong>{{ att.assessment.title|truncatechars:25 }}</strong></td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ att.started_at|date:"M d, Y" }}</td>
+              <td>
+                {% if att.percentage is not None %}
+                  <strong>{{ att.percentage }}%</strong>
+                {% else %}
+                  Evaluating
+                {% endif %}
+              </td>
+              <td>
+                {% if att.is_passed is True %}
+                  <span class="badge badge-success">Passed</span>
+                {% elif att.is_passed is False %}
+                  <span class="badge badge-danger">Failed</span>
+                {% else %}
+                  <span class="badge badge-warning">{{ att.status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                No completed test attempts yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Earned Certificates -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">My Certificates</h3>
+      <a href="{% url 'certificates:my_certificates' %}" class="btn btn-outline btn-sm">All Certificates &rarr;</a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      {% for cert in user_certificates %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="font-size: 1.75rem;">🏆</div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem;">{{ cert.assessment.title }}</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Score: {{ cert.score_percentage }}% &bull; {{ cert.issued_at|date:"M d, Y" }}</div>
+            </div>
+          </div>
+          <a href="{% url 'certificates:download_pdf' cert.id %}" class="btn btn-secondary btn-sm">
+            📄 PDF
+          </a>
+        </div>
+      {% empty %}
+        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          No certificates earned yet. Pass assessments to earn verified certificates!
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

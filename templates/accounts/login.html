@@ -1,0 +1,61 @@
+{% extends 'base/auth_base.html' %}
+
+{% block title %}Sign In — {{ COMPANY_NAME }} Assessments{% endblock %}
+
+{% block content %}
+<div class="auth-header">
+  <div class="brand-logo-icon" style="width: 52px; height: 52px; font-size: 1.5rem; margin: 0 auto 1rem; border-radius: 12px;">BT</div>
+  <h1 style="font-size: 1.5rem; margin-bottom: 0.35rem;">Welcome to BreakThru Assessments</h1>
+  <div class="auth-tagline">{{ COMPANY_TAGLINE }}</div>
+  <p class="auth-subtitle">Take your tests, track your progress, and earn your certificates.</p>
+</div>
+
+<form method="POST" action="{% url 'accounts:login' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" id="login-form">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert" style="margin-bottom: 1.25rem;">
+      {% for error in form.non_field_errors %}
+        <div>{{ error }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="form-group">
+    <label class="form-label" for="login-identifier">Username or Employee ID</label>
+    {{ form.username }}
+    {% if form.username.errors %}
+      <div class="form-help" style="color: var(--danger);">{{ form.username.errors.0 }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+      <label class="form-label" for="login-password" style="margin-bottom: 0;">Password</label>
+      <button type="button" class="password-toggle" data-target="login-password" style="background: none; border: none; font-size: 0.95rem; cursor: pointer; color: var(--text-muted);" title="Toggle password visibility">👁️</button>
+    </div>
+    {{ form.password }}
+    {% if form.password.errors %}
+      <div class="form-help" style="color: var(--danger);">{{ form.password.errors.0 }}</div>
+    {% endif %}
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; font-size: 0.88rem;">
+    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-muted);">
+      {{ form.remember_me }}
+      <span>Remember me</span>
+    </label>
+    <a href="#" onclick="alert('For security compliance, employee accounts are managed internally. Please reach out to your HR department or system administrator to reset your credentials.'); return false;" style="font-size: 0.82rem; color: var(--text-muted);">
+      Forgot password?
+    </a>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" id="signin-button">
+    Sign In to Portal
+  </button>
+</form>
+
+<div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-light); font-size: 0.82rem; color: var(--text-subtle); text-align: center;">
+  <strong>Notice:</strong> Public registration is disabled. Employee accounts are provisioned exclusively by authorized administrators.
+</div>
+{% endblock %}

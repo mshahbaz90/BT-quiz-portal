@@ -1,0 +1,110 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Assessment Result: {{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Result{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card" style="text-align: center; padding: 3rem 2rem; margin-bottom: 2rem;">
+    {% if attempt.status == 'GRADED' %}
+      {% if attempt.is_passed %}
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🏆</div>
+        <span class="badge badge-success" style="font-size: 1rem; padding: 0.5rem 1.25rem;">PASSED</span>
+        <h1 style="font-size: 2rem; margin-top: 1rem;">Congratulations, {{ user.first_name|default:user.username }}!</h1>
+        <p style="color: var(--text-muted); font-size: 1rem; margin-top: 0.5rem;">
+          You successfully passed <strong>{{ assessment.title }}</strong>.
+        </p>
+      {% else %}
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">📉</div>
+        <span class="badge badge-danger" style="font-size: 1rem; padding: 0.5rem 1.25rem;">FAILED</span>
+        <h1 style="font-size: 2rem; margin-top: 1rem;">Assessment Not Cleared</h1>
+        <p style="color: var(--text-muted); font-size: 1rem; margin-top: 0.5rem;">
+          You achieved <strong>{{ attempt.percentage }}%</strong>. The required passing score is <strong>{{ assessment.pass_mark_percentage }}%</strong>.
+        </p>
+      {% endif %}
+
+      <div class="grid grid-cols-3" style="margin: 2.5rem 0; gap: 1rem; text-align: center;">
+        <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md);">
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Final Score</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--primary); margin-top: 0.35rem;">{{ attempt.earned_marks }} / {{ attempt.max_possible_marks }}</div>
+        </div>
+        <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md);">
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Percentage</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: {% if attempt.is_passed %}var(--success){% else %}var(--danger){% endif %}; margin-top: 0.35rem;">
+            {{ attempt.percentage }}%
+          </div>
+        </div>
+        <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md);">
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Passing Threshold</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-top: 0.35rem;">{{ assessment.pass_mark_percentage }}%</div>
+        </div>
+      </div>
+
+      {% if attempt.is_passed and certificate %}
+        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate of Achievement Issued</h3>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Verification Code: <strong style="font-family: var(--font-mono);">{{ certificate.certificate_code }}</strong>
+          </p>
+          <div style="display: flex; justify-content: center; gap: 1rem;">
+            <a href="{% url 'certificates:download_pdf' certificate.id %}" class="btn btn-primary btn-lg">
+              📥 Download PDF Certificate
+            </a>
+            <a href="{% url 'certificates:verify_public' certificate.certificate_id %}" class="btn btn-outline btn-lg" target="_blank">
+              🔗 Verify Certificate Authenticity
+            </a>
+          </div>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <!-- Pending Manual Evaluation -->
+      <div style="font-size: 3.5rem; margin-bottom: 1rem;">⏳</div>
+      <span class="badge badge-warning" style="font-size: 1rem; padding: 0.5rem 1.25rem;">SUBMITTED &bull; PENDING GRADING</span>
+      <h1 style="font-size: 1.85rem; margin-top: 1rem;">Submission Recorded Successfully</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+        Your objective responses have been auto-graded, and your written answers have been queued for trainer evaluation. You will receive a notification once grading is finalized.
+      </p>
+    {% endif %}
+
+    <div style="margin-top: 2rem; display: flex; justify-content: center; gap: 1rem;">
+      <a href="{% url 'core:dashboard' %}" class="btn btn-secondary">
+        Return to Dashboard
+      </a>
+      <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline">
+        Browse Other Assessments
+      </a>
+    </div>
+  </div>
+
+  <!-- Detailed Question Breakdown (if released) -->
+  {% if can_view_breakdown and attempt.status == 'GRADED' %}
+    <div class="card" style="margin-top: 2rem;">
+      <div class="card-header">
+        <h2 class="card-title">Detailed Performance Breakdown</h2>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        {% for snap in attempt.snapshots.all %}
+          <div style="padding: 1.25rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-surface);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span class="badge badge-info">Question {{ snap.order_index }}</span>
+              <span style="font-weight: 700; color: {% if snap.response.marks_awarded > 0 %}var(--success){% else %}var(--danger){% endif %};">
+                {{ snap.response.marks_awarded }} / {{ snap.marks_allocated }} Pts
+              </span>
+            </div>
+            <div style="font-weight: 600; margin-bottom: 0.75rem;">{{ snap.question_text }}</div>
+
+            {% if snap.explanation %}
+              <div style="background: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-muted);">
+                💡 <strong>Explanation:</strong> {{ snap.explanation }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

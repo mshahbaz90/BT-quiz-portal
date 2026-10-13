@@ -1,0 +1,26 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Attempt Limit Reached — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Limit{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 3rem auto; text-align: center;">
+  <div class="card" style="padding: 2.5rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">🚫</div>
+    <h1 style="font-size: 1.6rem; margin-bottom: 0.5rem;">Attempt Limit Reached</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">
+      You have used all <strong>{{ completed_count }}</strong> permitted attempt(s) for <strong>{{ assessment.title }}</strong>.
+    </p>
+
+    <div style="display: flex; justify-content: center; gap: 1rem;">
+      <a href="{% url 'core:dashboard' %}" class="btn btn-secondary">
+        Return to Dashboard
+      </a>
+      <a href="{% url 'assessments:employee_list' %}" class="btn btn-primary">
+        Browse Other Assessments
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

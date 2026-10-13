@@ -1,0 +1,101 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Evaluate Attempt — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Grading &rsaquo; Evaluate {{ attempt.user.username }} ({{ attempt.assessment.code }}){% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+  <div class="card" style="margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <span class="badge badge-info">{{ attempt.assessment.code }}</span>
+        <h1 style="font-size: 1.5rem; margin-top: 0.35rem;">{{ attempt.assessment.title }}</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+          Candidate: <strong>{{ attempt.user.get_full_name|default:attempt.user.username }}</strong> &bull; Attempt #{{ attempt.attempt_number }}
+        </p>
+      </div>
+      <div>
+        <span class="badge {% if attempt.status == 'GRADED' %}badge-success{% else %}badge-warning{% endif %}">
+          {{ attempt.status }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <form method="POST">
+    {% csrf_token %}
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
+      {% for item in queue_items %}
+        <div class="card" style="padding: 1.75rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+            <span class="badge badge-info">Question {{ item.snapshot.order_index }}</span>
+            <span style="font-weight: 700; color: var(--primary);">Max Marks: {{ item.snapshot.marks_allocated }}</span>
+          </div>
+
+          <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem;">{{ item.snapshot.question_text }}</h3>
+
+          {% if item.snapshot.rich_content %}
+            <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.88rem; margin-bottom: 1rem;">
+              {{ item.snapshot.rich_content }}
+            </div>
+          {% endif %}
+
+          <div style="margin-bottom: 1.5rem;">
+            <label class="form-label" style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Candidate's Submitted Response:</label>
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-strong); padding: 1.25rem; border-radius: var(--radius-md); font-size: 1rem; line-height: 1.6; white-space: pre-wrap;">
+              {{ item.response.response_data.essay_text|default:item.response.response_data.text_answer|default:"[No response entered]" }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2" style="gap: 1.25rem; background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md);">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Awarded Marks (Out of {{ item.snapshot.marks_allocated }}) *</label>
+              <input type="number" step="0.5" min="0" max="{{ item.snapshot.marks_allocated }}" name="marks_{{ item.id }}" value="{{ item.marks_awarded|default:'' }}" class="form-input" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Constructive Grader Feedback</label>
+              <input type="text" name="feedback_{{ item.id }}" value="{{ item.grader_feedback }}" class="form-input" placeholder="Feedback visible to employee...">
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+      <a href="{% url 'grading:queue' %}" class="btn btn-outline">Cancel</a>
+      <button type="submit" class="btn btn-primary btn-lg">
+        Finalize Evaluation & Recalculate Score
+      </button>
+    </div>
+  </form>
+
+  <!-- Administrative Score Override Area (Super Admin only) -->
+  {% if user.is_super_admin %}
+    <div class="card" style="margin-top: 3rem; border: 1px dashed var(--border-strong);">
+      <div class="card-header">
+        <h3 class="card-title">Super Administrator Override</h3>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Directly adjust total score with mandatory audit reason logging.
+      </p>
+
+      <form method="POST" action="{% url 'grading:adjust_score' attempt.id %}">
+        {% csrf_token %}
+        <div class="grid grid-cols-2" style="margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label">New Total Score (Max: {{ attempt.max_possible_marks }})</label>
+            <input type="number" step="0.5" name="new_score" value="{{ attempt.earned_marks|default:'0' }}" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mandatory Audit Reason</label>
+            <input type="text" name="reason" placeholder="e.g. Approved re-evaluation by Training Committee" class="form-input" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-secondary">Apply Score Adjustment</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

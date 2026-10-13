@@ -1,0 +1,44 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Assessments Catalog — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}My Learning &rsaquo; Assessment Catalog{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.75rem;">BreakThru Assessment Catalog</h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">All published company assessments available to your profile.</p>
+</div>
+
+<div class="grid grid-cols-3">
+  {% for a in assessments %}
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <span class="badge badge-info">{{ a.category.name|default:"General" }}</span>
+          <span style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">{{ a.code }}</span>
+        </div>
+        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">{{ a.title }}</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; margin-bottom: 1.25rem;">
+          {{ a.description|truncatechars:110|default:"Take this assessment to demonstrate your proficiency." }}
+        </p>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); padding: 0.75rem 0; border-top: 1px solid var(--border-light); margin-bottom: 1rem;">
+          <span>⏱️ {{ a.duration_minutes }} mins</span>
+          <span>🎯 Pass: {{ a.pass_mark_percentage }}%</span>
+          <span>📝 {{ a.assessment_questions.count }} Qs</span>
+        </div>
+        <a href="{% url 'exam:start_instruction' a.id %}" class="btn btn-primary" style="width: 100%;">
+          View Instructions & Start &rarr;
+        </a>
+      </div>
+    </div>
+  {% empty %}
+    <div class="card" style="grid-column: span 3; text-align: center; padding: 3rem; color: var(--text-muted);">
+      No published assessments are available at this time.
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

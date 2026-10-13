@@ -1,0 +1,202 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Enterprise Analytics & Reports — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Reports &rsaquo; Performance Analytics{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.75rem;">Enterprise Analytics & Performance</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">Comprehensive assessment outcomes, department pass rates, and commonly missed questions.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{% url 'analytics:export_csv' %}" class="btn btn-outline">📥 Export CSV</a>
+    <a href="{% url 'analytics:export_excel' %}" class="btn btn-secondary">📊 Export Excel (.xlsx)</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom: 2rem; padding: 1.25rem;">
+  <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1; min-width: 200px;">
+      <label class="form-label">Department</label>
+      <select name="dept" class="form-select">
+        <option value="">All Departments</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+      <label class="form-label">Assessment</label>
+      <select name="assess" class="form-select">
+        <option value="">All Assessments</option>
+        {% for a in assessments %}
+          <option value="{{ a.id }}" {% if assess_filter == a.id|stringformat:"s" %}selected{% endif %}>{{ a.title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary" style="height: 42px;">Filter Reports</button>
+      <a href="{% url 'analytics:reports_overview' %}" class="btn btn-outline" style="height: 42px;">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Top Stats Grid -->
+<div class="grid grid-cols-4" style="margin-bottom: 2rem;">
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(2, 132, 199, 0.12); color: var(--primary);">📝</div>
+    <div>
+      <div class="stat-val">{{ total_attempts }}</div>
+      <div class="stat-label">Total Attempts</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--success);">🎯</div>
+    <div>
+      <div class="stat-val">{{ pass_rate }}%</div>
+      <div class="stat-label">Overall Pass Rate</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.12); color: var(--accent-indigo);">⭐</div>
+    <div>
+      <div class="stat-val">{{ avg_score }}%</div>
+      <div class="stat-label">Average Score</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.12); color: var(--warning);">✅</div>
+    <div>
+      <div class="stat-val">{{ graded_count }}</div>
+      <div class="stat-label">Graded Tests</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-2" style="gap: 2rem; margin-bottom: 2rem;">
+  <!-- Department Performance -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Performance by Department</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Department</th>
+            <th>Attempts</th>
+            <th>Pass Rate</th>
+            <th>Avg Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ds in dept_stats %}
+            <tr>
+              <td><strong>{{ ds.department.name }}</strong></td>
+              <td>{{ ds.count }}</td>
+              <td>
+                <span class="badge {% if ds.pass_rate >= 70 %}badge-success{% else %}badge-warning{% endif %}">
+                  {{ ds.pass_rate }}%
+                </span>
+              </td>
+              <td><strong>{{ ds.avg_score }}%</strong></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                No department data available.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Commonly Missed Questions -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Most Commonly Missed Questions</h2>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+      {% for mq in missed_responses %}
+        <div style="padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+            <span class="badge badge-warning" style="font-size: 0.7rem;">{{ mq.snapshot__question_type }}</span>
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--danger);">Missed {{ mq.miss_count }} times</span>
+          </div>
+          <div style="font-size: 0.9rem; font-weight: 500;">{{ mq.snapshot__question_text|truncatechars:85 }}</div>
+        </div>
+      {% empty %}
+        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          No missed questions recorded.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Detailed Attempt Records Table -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Detailed Assessment Submissions</h2>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Assessment</th>
+          <th>Department</th>
+          <th>Score</th>
+          <th>Result</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for att in recent_attempts %}
+          <tr>
+            <td>
+              <strong>{{ att.user.get_full_name|default:att.user.username }}</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ att.user.employee_id|default:"" }}</div>
+            </td>
+            <td>{{ att.assessment.code }} - {{ att.assessment.title|truncatechars:30 }}</td>
+            <td>{{ att.user.department.name|default:"—" }}</td>
+            <td>
+              {% if att.percentage is not None %}
+                <strong>{{ att.percentage }}%</strong> ({{ att.earned_marks }}/{{ att.max_possible_marks }})
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if att.is_passed is True %}
+                <span class="badge badge-success">PASSED</span>
+              {% elif att.is_passed is False %}
+                <span class="badge badge-danger">FAILED</span>
+              {% else %}
+                <span class="badge badge-warning">{{ att.status }}</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 0.82rem; color: var(--text-muted);">
+              {{ att.started_at|date:"M d, Y H:i" }}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+              No submissions match your filters.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

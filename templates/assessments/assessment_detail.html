@@ -1,0 +1,138 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Details{% endblock %}
+
+{% block content %}
+<!-- Assessment Header Summary -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <span class="badge badge-info">{{ assessment.category.name|default:"General" }}</span>
+        <span style="font-family: var(--font-mono); font-weight: 700;">{{ assessment.code }}</span>
+        <span class="badge {% if assessment.status == 'PUBLISHED' %}badge-success{% else %}badge-warning{% endif %}">
+          {{ assessment.status }}
+        </span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Version {{ assessment.version }}</span>
+      </div>
+      <h1 style="font-size: 1.65rem;">{{ assessment.title }}</h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">{{ assessment.description }}</p>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="{% url 'assessments:assessment_preview' assessment.id %}" class="btn btn-outline" target="_blank">
+        👁️ Preview Test
+      </a>
+      <a href="{% url 'assessments:assessment_edit' assessment.id %}" class="btn btn-secondary">
+        ✏️ Edit Settings
+      </a>
+      <form method="POST" action="{% url 'assessments:assessment_toggle_publish' assessment.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn {% if assessment.status == 'PUBLISHED' %}btn-danger{% else %}btn-success{% endif %}">
+          {% if assessment.status == 'PUBLISHED' %}Unpublish (Draft){% else %}🚀 Publish Assessment{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-4" style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-light); font-size: 0.85rem;">
+    <div>
+      <div style="color: var(--text-muted);">Duration</div>
+      <div style="font-weight: 700; font-size: 1.05rem;">{{ assessment.duration_minutes }} Minutes</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Passing Score</div>
+      <div style="font-weight: 700; font-size: 1.05rem;">{{ assessment.pass_mark_percentage }}%</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Total Questions</div>
+      <div style="font-weight: 700; font-size: 1.05rem;">{{ assessment.assessment_questions.count }} Questions</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Total Marks</div>
+      <div style="font-weight: 700; font-size: 1.05rem;">{{ assessment.total_marks }} Pts</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-3" style="gap: 2rem;">
+  <!-- Attached Questions List (Span 2) -->
+  <div style="grid-column: span 2;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Questions in this Assessment ({{ assessment.assessment_questions.count }})</h2>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for aq in assessment.assessment_questions.all %}
+          <div style="border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; background: var(--bg-surface);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="badge badge-info" style="font-family: var(--font-mono);">#{{ aq.order }}</span>
+                <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ aq.question.get_question_type_display }}</span>
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--primary);">{{ aq.effective_marks }} Marks</span>
+              </div>
+              <form method="POST" action="{% url 'assessments:assessment_remove_question' assessment.id aq.question.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+              </form>
+            </div>
+
+            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem;">{{ aq.question.question_text }}</div>
+
+            {% if aq.question.options.exists %}
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 0.85rem; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm);">
+                {% for opt in aq.question.options.all %}
+                  <div style="display: flex; align-items: center; gap: 0.35rem; color: {% if opt.is_correct %}var(--success){% else %}var(--text-muted){% endif %};">
+                    <span>{% if opt.is_correct %}✓{% else %}•{% endif %}</span>
+                    <span>{{ opt.option_text }}</span>
+                    {% if opt.match_target %} &rarr; <em>{{ opt.match_target }}</em>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No questions attached yet. Select questions from the Question Bank on the right!
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Question Bank Sidebar -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Add from Bank</h3>
+        <a href="{% url 'assessments:question_create' %}" class="btn btn-primary btn-sm">➕ Create New</a>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Click "+ Add" to attach bank questions to this assessment.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 600px; overflow-y: auto;">
+        {% for bq in available_bank_questions %}
+          <div style="padding: 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <span class="badge badge-info" style="font-size: 0.65rem;">{{ bq.get_question_type_display }}</span>
+              <form method="POST" action="{% url 'assessments:assessment_add_question' assessment.id bq.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;">+ Add</button>
+              </form>
+            </div>
+            <div style="font-weight: 500; line-height: 1.3;">{{ bq.question_text|truncatechars:65 }}</div>
+          </div>
+        {% empty %}
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem;">
+            No additional bank questions found.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

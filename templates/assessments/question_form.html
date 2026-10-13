@@ -1,0 +1,203 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; <a href="{% url 'assessments:question_bank' %}">Question Bank</a> &rsaquo; {{ title }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">{{ title }}</h2>
+      <a href="{% url 'assessments:question_bank' %}" class="btn btn-outline btn-sm">&larr; Back to Question Bank</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="question-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Question Type *</label>
+          {{ form.question_type }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          {{ form.category }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Question Stem / Prompt *</label>
+        {{ form.question_text }}
+        {% if form.question_text.errors %}<div class="form-help" style="color: var(--danger);">{{ form.question_text.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Formatted Text / Code Snippet / Case Study (Optional)</label>
+        {{ form.rich_content }}
+        <div class="form-help">{{ form.rich_content.help_text }}</div>
+      </div>
+
+      <div class="grid grid-cols-3" style="margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label">Default Marks</label>
+          {{ form.default_marks }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Difficulty Level</label>
+          {{ form.difficulty }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags / Topics</label>
+          {{ form.tags }}
+          <div class="form-help">{{ form.tags.help_text }}</div>
+        </div>
+      </div>
+
+      <!-- Type-Specific Dynamic Option Containers -->
+
+      <!-- 1. Multiple Choice / Select Options -->
+      <div id="options-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="font-size: 1rem;">Answer Options & Key</h3>
+          <button type="button" class="btn btn-secondary btn-sm" id="add-option-btn">+ Add Choice</button>
+        </div>
+        <div id="option-rows" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="checkbox" name="is_correct[]" value="0" title="Mark as correct answer">
+            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 1" style="flex: 1;">
+          </div>
+          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="checkbox" name="is_correct[]" value="1" title="Mark as correct answer">
+            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 2" style="flex: 1;">
+          </div>
+          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="checkbox" name="is_correct[]" value="2" title="Mark as correct answer">
+            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 3" style="flex: 1;">
+          </div>
+          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="checkbox" name="is_correct[]" value="3" title="Mark as correct answer">
+            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 4" style="flex: 1;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. True / False & Yes / No -->
+      <div id="binary-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Correct Response</h3>
+        <div style="display: flex; gap: 2rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="binary_correct" value="true" checked>
+            <span>True / Yes</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="binary_correct" value="false">
+            <span>False / No</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 3. Short Answer & Fill Blank Accepted Answers -->
+      <div id="short-answer-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Accepted Answer(s)</h3>
+        {{ form.short_answer_accepted }}
+        <div class="form-help">{{ form.short_answer_accepted.help_text }}</div>
+      </div>
+
+      <!-- 4. Numeric Answer Container -->
+      <div id="numeric-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Numeric Value & Tolerances</h3>
+        <div class="grid grid-cols-2">
+          <div>
+            <label class="form-label">Correct Value</label>
+            {{ form.numeric_answer }}
+          </div>
+          <div>
+            <label class="form-label">Acceptable Margin / Tolerance (±)</label>
+            {{ form.numeric_tolerance }}
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Matching Container -->
+      <div id="matching-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Matching Pairs</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; gap: 1rem;">
+            <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. CPU)" style="flex: 1;">
+            <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Central Processing Unit)" style="flex: 1;">
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. RAM)" style="flex: 1;">
+            <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Random Access Memory)" style="flex: 1;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation & Hints -->
+      <div class="grid grid-cols-2" style="margin-bottom: 1.5rem;">
+        <div class="form-group">
+          <label class="form-label">Optional Hint</label>
+          {{ form.hint }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Explanation (For Candidate Review)</label>
+          {{ form.explanation }}
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+        <a href="{% url 'assessments:question_bank' %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">Save Question to Bank</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const typeSelect = document.getElementById('question-type-select');
+  const optBox = document.getElementById('options-container');
+  const binBox = document.getElementById('binary-container');
+  const shortBox = document.getElementById('short-answer-container');
+  const numBox = document.getElementById('numeric-container');
+  const matchBox = document.getElementById('matching-container');
+
+  function updateTypeView() {
+    const val = typeSelect.value;
+    optBox.style.display = (val === 'SINGLE_CHOICE' || val === 'MULTIPLE_SELECT' || val === 'RICH_CONTENT' || val === 'EXPLANATION_HINT') ? 'block' : 'none';
+    binBox.style.display = (val === 'TRUE_FALSE' || val === 'YES_NO') ? 'block' : 'none';
+    shortBox.style.display = (val === 'SHORT_ANSWER' || val === 'FILL_BLANK') ? 'block' : 'none';
+    numBox.style.display = (val === 'NUMERIC') ? 'block' : 'none';
+    matchBox.style.display = (val === 'MATCHING') ? 'block' : 'none';
+  }
+
+  typeSelect.addEventListener('change', updateTypeView);
+  updateTypeView();
+
+  const addBtn = document.getElementById('add-option-btn');
+  const rows = document.getElementById('option-rows');
+  if (addBtn && rows) {
+    addBtn.addEventListener('click', () => {
+      const count = rows.querySelectorAll('.option-row').length;
+      const row = document.createElement('div');
+      row.className = 'option-row';
+      row.style.cssText = 'display: flex; gap: 0.75rem; align-items: center;';
+      row.innerHTML = `
+        <input type="checkbox" name="is_correct[]" value="${count}" title="Mark as correct answer">
+        <input type="text" name="option_text[]" class="form-input" placeholder="Option choice ${count + 1}" style="flex: 1;">
+      `;
+      rows.appendChild(row);
+    });
+  }
+});
+</script>
+{% endblock %}

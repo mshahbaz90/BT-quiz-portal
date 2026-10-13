@@ -1,0 +1,65 @@
+{% extends 'base/auth_base.html' %}
+
+{% block title %}Certificate Verification — {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="auth-header">
+  <div class="brand-logo-icon" style="width: 52px; height: 52px; font-size: 1.5rem; margin: 0 auto 1rem; border-radius: 12px;">BT</div>
+  <h1 style="font-size: 1.5rem; margin-bottom: 0.35rem;">BreakThru Credential Verification</h1>
+  <div class="auth-tagline">{{ COMPANY_TAGLINE }}</div>
+  <p class="auth-subtitle">Official certificate authenticity validation system.</p>
+</div>
+
+{% if certificate %}
+  {% if certificate.is_revoked %}
+    <div class="alert alert-danger" style="margin-bottom: 1.5rem; text-align: left;">
+      <div>
+        <strong>REVOKED CERTIFICATE:</strong> This credential was officially revoked by BreakThru administration.
+        {% if certificate.revocation_reason %}<div style="margin-top: 0.25rem;">Reason: {{ certificate.revocation_reason }}</div>{% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div style="background: var(--success-bg); border: 1px solid var(--success-border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
+      <div style="font-size: 2rem; margin-bottom: 0.25rem;">✅</div>
+      <div style="color: #065f46; font-weight: 800; font-size: 1.15rem; text-transform: uppercase;">Authentic & Verified Credential</div>
+      <div style="font-size: 0.85rem; color: #047857; margin-top: 0.25rem;">Issued by BreakThru (breakthru.pk)</div>
+    </div>
+  {% endif %}
+
+  <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); font-size: 0.9rem; display: flex; flex-direction: column; gap: 0.75rem; text-align: left;">
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Recipient:</span>
+      <strong>{{ certificate.user.get_full_name|default:certificate.user.username }}</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Assessment:</span>
+      <strong>{{ certificate.assessment.title }}</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Score Earned:</span>
+      <strong>{{ certificate.score_percentage }}%</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Issue Date:</span>
+      <strong>{{ certificate.issued_at|date:"F d, Y" }}</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span style="color: var(--text-muted);">Certificate Code:</span>
+      <strong style="font-family: var(--font-mono);">{{ certificate.certificate_code }}</strong>
+    </div>
+  </div>
+
+{% else %}
+  <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+    <div>
+      <strong>Invalid Credential:</strong> No valid certificate was found matching this verification identifier.
+    </div>
+  </div>
+{% endif %}
+
+<div style="margin-top: 1.75rem; text-align: center;">
+  <a href="{% url 'accounts:login' %}" class="btn btn-outline" style="width: 100%;">
+    Go to BreakThru Assessments Portal
+  </a>
+</div>
+{% endblock %}

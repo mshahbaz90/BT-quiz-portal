@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ assessment.title }} — Live Assessment Session</title>
+  <link rel="stylesheet" href="/static/css/portal.css">
+  <style>
+    body {
+      background: var(--bg-page);
+      user-select: none;
+    }
+    .exam-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-light);
+      padding: 0.85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+    .timer-pill {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-strong);
+      padding: 0.45rem 1.15rem;
+      border-radius: var(--radius-full);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .timer-pill.urgent {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .exam-layout {
+      display: flex;
+      min-height: calc(100vh - 70px);
+    }
+    .exam-main {
+      flex: 1;
+      padding: 2.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .exam-sidebar {
+      width: 320px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-light);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .nav-btn {
+      width: 100%;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-subtle);
+      color: var(--text-main);
+      cursor: pointer;
+      position: relative;
+    }
+    .nav-btn.active {
+      border: 2px solid var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+    .nav-btn.answered {
+      background: var(--success-bg);
+      border-color: var(--success);
+      color: #065f46;
+    }
+    .nav-btn.flagged::after {
+      content: '🚩';
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 0.65rem;
+    }
+    .question-card {
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+    .question-card.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      margin-bottom: 0.75rem;
+    }
+    .option-item:hover {
+      border-color: var(--primary);
+      background: var(--bg-subtle);
+    }
+    .option-item.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    [data-theme="dark"] .option-item.selected {
+      background: rgba(2, 132, 199, 0.2);
+    }
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="exam-header">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div class="brand-logo-icon" style="width: 32px; height: 32px; font-size: 0.95rem;">BT</div>
+      <div>
+        <h1 style="font-size: 1.15rem; font-weight: 700;">{{ assessment.title }}</h1>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Candidate: <strong>{{ user.get_full_name|default:user.username }}</strong> &bull; Attempt #{{ attempt.attempt_number }}</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 1.5rem;">
+      <!-- Autosave Status Badge -->
+      <div id="autosave-status" style="font-size: 0.8rem; font-weight: 600; color: var(--success); display: flex; align-items: center; gap: 0.35rem;">
+        <span id="autosave-icon">✓</span> <span id="autosave-text">All answers saved</span>
+      </div>
+
+      <!-- Server Countdown Timer -->
+      <div class="timer-pill" id="timer-pill">
+        <span>⏱️</span>
+        <span id="timer-display">--:--</span>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-sm" id="open-submit-modal-btn">
+        Submit Test &rarr;
+      </button>
+    </div>
+  </header>
+
+  <div class="exam-layout">
+    <!-- Main Question Viewport -->
+    <main class="exam-main">
+      {% for snap in snapshots %}
+        <div class="question-card {% if forloop.first %}active{% endif %}" id="q-card-{{ snap.order_index }}" data-snapshot-id="{{ snap.id }}" data-order="{{ snap.order_index }}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light);">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span class="badge badge-info" style="font-size: 0.85rem;">Question {{ snap.order_index }} of {{ snapshots|length }}</span>
+              <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">{{ snap.marks_allocated }} Marks</span>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm flag-toggle-btn" data-snapshot-id="{{ snap.id }}" id="flag-btn-{{ snap.order_index }}">
+              <span>🚩</span> <span class="flag-label">{% if snap.is_flagged %}Flagged{% else %}Flag for Review{% endif %}</span>
+            </button>
+          </div>
+
+          <!-- Question Stem -->
+          <div style="font-size: 1.25rem; font-weight: 600; line-height: 1.45; margin-bottom: 1.5rem;">
+            {{ snap.question_text }}
+          </div>
+
+          <!-- Formatted / Code Snippet / Case Study -->
+          {% if snap.rich_content %}
+            <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.9rem; margin-bottom: 1.5rem; overflow-x: auto; border: 1px solid var(--border-light);">
+              {{ snap.rich_content }}
+            </div>
+          {% endif %}
+
+          {% if snap.hint %}
+            <div style="margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--info); background: var(--info-bg); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--info-border);">
+              💡 <strong>Hint:</strong> {{ snap.hint }}
+            </div>
+          {% endif %}
+
+          <!-- Inputs for Question Types -->
+          <div class="options-container" style="margin-bottom: 2rem;">
+            {% if snap.question_type == 'SINGLE_CHOICE' or snap.question_type == 'TRUE_FALSE' or snap.question_type == 'YES_NO' %}
+              {% for opt in snap.snapshot_data.choices %}
+                <label class="option-item {% if snap.response.response_data.selected_option_id|stringformat:'s' == opt.id|stringformat:'s' %}selected{% endif %}">
+                  <input type="radio" name="resp_{{ snap.id }}" value="{{ opt.id }}" {% if snap.response.response_data.selected_option_id|stringformat:'s' == opt.id|stringformat:'s' %}checked{% endif %} class="q-input" data-type="single">
+                  <span style="font-size: 1rem;">{{ opt.text }}</span>
+                </label>
+              {% endfor %}
+
+            {% elif snap.question_type == 'MULTIPLE_SELECT' %}
+              {% for opt in snap.snapshot_data.choices %}
+                <label class="option-item {% if opt.id in snap.response.response_data.selected_option_ids %}selected{% endif %}">
+                  <input type="checkbox" name="resp_{{ snap.id }}[]" value="{{ opt.id }}" {% if opt.id in snap.response.response_data.selected_option_ids %}checked{% endif %} class="q-input" data-type="multi">
+                  <span style="font-size: 1rem;">{{ opt.text }}</span>
+                </label>
+              {% endfor %}
+
+            {% elif snap.question_type == 'SHORT_ANSWER' or snap.question_type == 'FILL_BLANK' %}
+              <div class="form-group">
+                <input type="text" class="form-input q-text-input" style="font-size: 1.05rem; padding: 0.85rem;" placeholder="Type your answer here..." value="{{ snap.response.response_data.text_answer|default:'' }}" data-type="text">
+              </div>
+
+            {% elif snap.question_type == 'NUMERIC' %}
+              <div class="form-group">
+                <input type="number" step="any" class="form-input q-text-input" style="font-size: 1.05rem; padding: 0.85rem;" placeholder="Enter numeric value..." value="{{ snap.response.response_data.numeric_value|default:'' }}" data-type="numeric">
+              </div>
+
+            {% elif snap.question_type == 'LONG_ANSWER' %}
+              <div class="form-group">
+                <textarea class="form-textarea q-text-input" rows="7" style="font-size: 1rem; line-height: 1.5;" placeholder="Compose your response in detail..." data-type="essay">{{ snap.response.response_data.essay_text|default:'' }}</textarea>
+              </div>
+
+            {% elif snap.question_type == 'MATCHING' %}
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for prompt in snap.snapshot_data.prompts %}
+                  <div style="display: flex; gap: 1.5rem; align-items: center;">
+                    <div style="flex: 1; padding: 0.85rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); font-weight: 600;">{{ prompt }}</div>
+                    <div style="color: var(--text-muted);">&rarr;</div>
+                    <select class="form-select q-matching-select" style="flex: 1;" data-prompt="{{ prompt }}" data-type="matching">
+                      <option value="">-- Select Match --</option>
+                      {% for choice in snap.snapshot_data.target_choices %}
+                        <option value="{{ choice }}" {% if snap.response.response_data.matches|default:None and snap.response.response_data.matches.prompt == choice %}selected{% endif %}>{{ choice }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                {% endfor %}
+              </div>
+
+            {% elif snap.question_type == 'ORDERING' %}
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Enter sequence numbers (1, 2, 3...) to order these items correctly:</div>
+                {% for item in snap.snapshot_data.items %}
+                  <div style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="number" min="1" max="{{ snap.snapshot_data.items|length }}" class="form-input q-order-input" style="width: 70px; text-align: center;" value="{{ forloop.counter }}" data-item="{{ item }}" data-type="ordering">
+                    <div style="flex: 1; padding: 0.85rem 1rem; border: 1px solid var(--border-light); border-radius: var(--radius-md);">{{ item }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Bottom Navigation Controls -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
+            {% if assessment.allow_backtracking %}
+              <button type="button" class="btn btn-secondary prev-btn" {% if forloop.first %}disabled{% endif %}>
+                &larr; Previous Question
+              </button>
+            {% else %}
+              <span style="font-size: 0.8rem; color: var(--text-subtle);">Linear progression mode</span>
+            {% endif %}
+
+            {% if not forloop.last %}
+              <button type="button" class="btn btn-primary next-btn">
+                Next Question &rarr;
+              </button>
+            {% else %}
+              <button type="button" class="btn btn-success finish-step-btn">
+                Review & Submit &rarr;
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </main>
+
+    <!-- Sidebar Navigator -->
+    <aside class="exam-sidebar">
+      <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem;">Question Navigator</h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Click any question to navigate directly.
+      </p>
+
+      <div class="nav-grid">
+        {% for snap in snapshots %}
+          <button type="button" class="nav-btn {% if forloop.first %}active{% endif %} {% if snap.response.is_answered %}answered{% endif %} {% if snap.is_flagged %}flagged{% endif %}" id="nav-badge-{{ snap.order_index }}" data-target="{{ snap.order_index }}">
+            {{ snap.order_index }}
+          </button>
+        {% endfor %}
+      </div>
+
+      <!-- Legend -->
+      <div style="margin-top: 2rem; border-top: 1px solid var(--border-light); padding-top: 1.25rem; font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="width: 14px; height: 14px; background: var(--success-bg); border: 1px solid var(--success); border-radius: 3px; display: inline-block;"></span>
+          <span>Answered</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="width: 14px; height: 14px; background: var(--bg-subtle); border: 1px solid var(--border-strong); border-radius: 3px; display: inline-block;"></span>
+          <span>Unanswered</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span>🚩</span>
+          <span>Flagged for Review</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Submission Confirmation Modal -->
+  <div class="modal-backdrop" id="submit-modal">
+    <div class="card" style="width: 100%; max-width: 480px; padding: 2rem; box-shadow: var(--shadow-xl);">
+      <h2 style="font-size: 1.4rem; margin-bottom: 0.5rem;">Confirm Test Submission</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+        Are you ready to finalize your assessment? You cannot modify your answers once submitted.
+      </p>
+
+      <div style="background: var(--bg-subtle); padding: 1rem 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; font-size: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span>Total Questions:</span>
+          <strong>{{ snapshots|length }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>Answered Questions:</span>
+          <strong id="modal-answered-count" style="color: var(--success);">0</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>Unanswered Questions:</span>
+          <strong id="modal-unanswered-count" style="color: var(--danger);">0</strong>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <button type="button" class="btn btn-outline" id="close-modal-btn">Return to Test</button>
+        <form method="POST" action="{% url 'exam:submit_assessment' attempt.id %}" id="final-submit-form">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary" id="confirm-submit-btn">
+            Yes, Finalize & Submit
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const attemptId = {{ attempt.id }};
+    const totalQuestions = {{ snapshots|length }};
+    const deadlineTimestamp = new Date("{{ deadline_iso }}").getTime();
+    let currentIndex = 1;
+    let autosaveDebounceTimer = null;
+
+    // Timer Countdown
+    const timerDisplay = document.getElementById('timer-display');
+    const timerPill = document.getElementById('timer-pill');
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const diff = Math.max(0, Math.floor((deadlineTimestamp - now) / 1000));
+
+      if (diff <= 0) {
+        timerDisplay.textContent = "00:00";
+        alert("Time limit reached! Your assessment will now be submitted automatically.");
+        document.getElementById('final-submit-form').submit();
+        return;
+      }
+
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      timerDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      if (diff < 300) { // Under 5 minutes
+        timerPill.classList.add('urgent');
+      }
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // Navigation Switcher
+    function showQuestion(index) {
+      if (index < 1 || index > totalQuestions) return;
+      document.querySelectorAll('.question-card').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+      const targetCard = document.getElementById(`q-card-${index}`);
+      const targetNav = document.getElementById(`nav-badge-${index}`);
+      if (targetCard) targetCard.classList.add('active');
+      if (targetNav) targetNav.classList.add('active');
+      currentIndex = index;
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        showQuestion(parseInt(btn.getAttribute('data-target')));
+      });
+    });
+
+    document.querySelectorAll('.next-btn').forEach(btn => {
+      btn.addEventListener('click', () => showQuestion(currentIndex + 1));
+    });
+    document.querySelectorAll('.prev-btn').forEach(btn => {
+      btn.addEventListener('click', () => showQuestion(currentIndex - 1));
+    });
+
+    // Autosave Handler
+    function triggerAutosave(card) {
+      const snapId = card.getAttribute('data-snapshot-id');
+      const order = card.getAttribute('data-order');
+      let payload = {};
+
+      const singleRadio = card.querySelector('input[data-type="single"]:checked');
+      if (singleRadio) {
+        payload.selected_option_id = parseInt(singleRadio.value);
+      }
+
+      const multiChecks = card.querySelectorAll('input[data-type="multi"]:checked');
+      if (multiChecks.length > 0) {
+        payload.selected_option_ids = Array.from(multiChecks).map(c => parseInt(c.value));
+      }
+
+      const textInput = card.querySelector('input[data-type="text"], textarea[data-type="essay"]');
+      if (textInput) {
+        if (textInput.getAttribute('data-type') === 'text') payload.text_answer = textInput.value;
+        if (textInput.getAttribute('data-type') === 'essay') payload.essay_text = textInput.value;
+      }
+
+      const numericInput = card.querySelector('input[data-type="numeric"]');
+      if (numericInput && numericInput.value !== '') {
+        payload.numeric_value = parseFloat(numericInput.value);
+      }
+
+      const matchSelects = card.querySelectorAll('.q-matching-select');
+      if (matchSelects.length > 0) {
+        payload.matches = {};
+        matchSelects.forEach(s => {
+          if (s.value) payload.matches[s.getAttribute('data-prompt')] = s.value;
+        });
+      }
+
+      // Update UI Status
+      const statusIcon = document.getElementById('autosave-icon');
+      const statusText = document.getElementById('autosave-text');
+      statusIcon.textContent = '⏳';
+      statusText.textContent = 'Saving...';
+
+      fetch(`/exam/api/${attemptId}/autosave/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          snapshot_id: snapId,
+          response_data: payload
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.status === 'saved') {
+          statusIcon.textContent = '✓';
+          statusText.textContent = `Saved at ${res.saved_at}`;
+          document.getElementById(`nav-badge-${order}`).classList.add('answered');
+        }
+      })
+      .catch(() => {
+        statusIcon.textContent = '⚠️';
+        statusText.textContent = 'Offline (will retry)';
+      });
+    }
+
+    // Input Change Listeners
+    document.querySelectorAll('.question-card').forEach(card => {
+      card.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(inp => {
+        inp.addEventListener('change', () => {
+          // Highlight selected option styles
+          card.querySelectorAll('.option-item').forEach(it => {
+            const checked = it.querySelector('input:checked');
+            if (checked) it.classList.add('selected');
+            else it.classList.remove('selected');
+          });
+          triggerAutosave(card);
+        });
+      });
+
+      card.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(inp => {
+        inp.addEventListener('input', () => {
+          clearTimeout(autosaveDebounceTimer);
+          autosaveDebounceTimer = setTimeout(() => triggerAutosave(card), 600);
+        });
+      });
+
+      card.querySelectorAll('select').forEach(sel => {
+        sel.addEventListener('change', () => triggerAutosave(card));
+      });
+    });
+
+    // Flag Question Toggle
+    document.querySelectorAll('.flag-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const snapId = btn.getAttribute('data-snapshot-id');
+        fetch(`/exam/api/${attemptId}/flag/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: JSON.stringify({ snapshot_id: snapId })
+        })
+        .then(r => r.json())
+        .then(res => {
+          const navBtn = document.getElementById(`nav-badge-${currentIndex}`);
+          const label = btn.querySelector('.flag-label');
+          if (res.is_flagged) {
+            navBtn.classList.add('flagged');
+            label.textContent = 'Flagged';
+          } else {
+            navBtn.classList.remove('flagged');
+            label.textContent = 'Flag for Review';
+          }
+        });
+      });
+    });
+
+    // Submit Modal Handler
+    const modal = document.getElementById('submit-modal');
+    function openModal() {
+      const answeredCount = document.querySelectorAll('.nav-btn.answered').length;
+      document.getElementById('modal-answered-count').textContent = answeredCount;
+      document.getElementById('modal-unanswered-count').textContent = Math.max(0, totalQuestions - answeredCount);
+      modal.classList.add('open');
+    }
+    document.getElementById('open-submit-modal-btn').addEventListener('click', openModal);
+    document.querySelectorAll('.finish-step-btn').forEach(b => b.addEventListener('click', openModal));
+    document.getElementById('close-modal-btn').addEventListener('click', () => modal.classList.remove('open'));
+
+    // Window Blur (Tab Switch) Integrity Deterrent
+    window.addEventListener('blur', () => {
+      fetch(`/exam/api/${attemptId}/switch/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        }
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

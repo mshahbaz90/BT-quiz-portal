@@ -1,0 +1,56 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Grading Queue — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Trainer Portal &rsaquo; Manual Grading Queue{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.6rem;">Manual Grading Queue</h1>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">Review and assign marks for open-ended essay questions and written responses.</p>
+</div>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Candidate</th>
+        <th>Assessment</th>
+        <th>Question Type</th>
+        <th>Submitted Date</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in pending_items %}
+        <tr>
+          <td>
+            <strong>{{ item.attempt.user.get_full_name|default:item.attempt.user.username }}</strong>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.attempt.user.employee_id|default:"" }}</div>
+          </td>
+          <td>{{ item.attempt.assessment.title }}</td>
+          <td>
+            <span class="badge badge-warning">{{ item.snapshot.question_type }}</span>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Q#{{ item.snapshot.order_index }} ({{ item.snapshot.marks_allocated }} Pts)</div>
+          </td>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">
+            {{ item.created_at|date:"M d, Y H:i" }}
+          </td>
+          <td>
+            <a href="{% url 'grading:evaluate_attempt' item.attempt.id %}" class="btn btn-primary btn-sm">
+              ✍️ Grade Responses &rarr;
+            </a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎉</div>
+            <strong>All caught up!</strong> No pending submissions requiring manual grading.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

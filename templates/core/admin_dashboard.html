@@ -1,0 +1,153 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Enterprise Dashboard — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Enterprise Overview{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.75rem;">Welcome, {{ user.first_name|default:user.username }}</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">BreakThru corporate assessment metrics and organization-wide testing performance.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{% url 'assessments:assessment_create' %}" class="btn btn-primary">➕ New Assessment</a>
+    <a href="{% url 'accounts:employee_create' %}" class="btn btn-secondary">👥 Add Employee</a>
+  </div>
+</div>
+
+<!-- Key Stat Cards -->
+<div class="grid grid-cols-4" style="margin-bottom: 2rem;">
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(2, 132, 199, 0.12); color: var(--primary);">👥</div>
+    <div>
+      <div class="stat-val">{{ total_employees }}</div>
+      <div class="stat-label">Active Employees</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--success);">📋</div>
+    <div>
+      <div class="stat-val">{{ total_assessments }}</div>
+      <div class="stat-label">Total Assessments</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.12); color: var(--accent-indigo);">✍️</div>
+    <div>
+      <div class="stat-val">{{ total_attempts }}</div>
+      <div class="stat-label">Assessment Attempts</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.12); color: var(--warning);">🎯</div>
+    <div>
+      <div class="stat-val">{{ pass_rate }}%</div>
+      <div class="stat-label">Average Pass Rate</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-3" style="gap: 2rem; margin-bottom: 2rem;">
+  <!-- Recent Attempts (Span 2) -->
+  <div style="grid-column: span 2;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Recent Assessment Submissions</h2>
+        <a href="{% url 'analytics:reports_overview' %}" class="btn btn-outline btn-sm">View All Reports &rarr;</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Assessment</th>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Result</th>
+              <th>Submitted</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for att in recent_attempts %}
+              <tr>
+                <td>
+                  <strong>{{ att.user.get_full_name|default:att.user.username }}</strong>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">{{ att.user.employee_id|default:"" }}</div>
+                </td>
+                <td>{{ att.assessment.code }} - {{ att.assessment.title|truncatechars:25 }}</td>
+                <td>
+                  {% if att.status == 'GRADED' %}
+                    <span class="badge badge-success">Graded</span>
+                  {% elif att.status == 'SUBMITTED' %}
+                    <span class="badge badge-warning">Submitted</span>
+                  {% elif att.status == 'IN_PROGRESS' %}
+                    <span class="badge badge-info">In Progress</span>
+                  {% else %}
+                    <span class="badge badge-danger">{{ att.status }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if att.percentage is not None %}
+                    <strong>{{ att.percentage }}%</strong>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>
+                  {% if att.is_passed is True %}
+                    <span style="color: var(--success); font-weight: 700;">PASSED</span>
+                  {% elif att.is_passed is False %}
+                    <span style="color: var(--danger); font-weight: 700;">FAILED</span>
+                  {% else %}
+                    <span style="color: var(--text-muted);">Pending</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">
+                  {{ att.started_at|date:"M d, H:i" }}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No assessment attempts recorded yet.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent System & Security Audits -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Security & Audit Feed</h3>
+        <a href="{% url 'core:audit_logs' %}" class="btn btn-outline btn-sm">Full Audit &rarr;</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for a in recent_audits %}
+          <div style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="badge badge-info" style="font-size: 0.7rem;">{{ a.action }}</span>
+              <span style="color: var(--text-subtle); font-size: 0.75rem;">{{ a.timestamp|timesince }} ago</span>
+            </div>
+            <div style="margin-top: 0.35rem; font-weight: 500;">
+              {{ a.user.username|default:"System" }} &bull; {{ a.target_model }} #{{ a.target_id }}
+            </div>
+          </div>
+        {% empty %}
+          <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1.5rem;">
+            No audit logs recorded yet.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

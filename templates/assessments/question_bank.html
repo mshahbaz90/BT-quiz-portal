@@ -1,0 +1,120 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Question Bank — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; Question Bank{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Central Question Bank</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Reusable question pool supporting 12 question types, difficulty categorization, and automated grading keys.</p>
+  </div>
+  <a href="{% url 'assessments:question_create' %}" class="btn btn-primary">➕ Add Question</a>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+  <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 2; min-width: 220px;">
+      <label class="form-label">Search Questions & Tags</label>
+      <input type="text" name="q" value="{{ query }}" placeholder="Search text or tags..." class="form-input">
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <label class="form-label">Question Type</label>
+      <select name="type" class="form-select">
+        <option value="">All 12 Types</option>
+        {% for t_val, t_label in types %}
+          <option value="{{ t_val }}" {% if type_filter == t_val %}selected{% endif %}>{{ t_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 140px;">
+      <label class="form-label">Difficulty</label>
+      <select name="diff" class="form-select">
+        <option value="">All Difficulties</option>
+        {% for d_val, d_label in difficulties %}
+          <option value="{{ d_val }}" {% if diff_filter == d_val %}selected{% endif %}>{{ d_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary" style="height: 42px;">Filter</button>
+      <a href="{% url 'assessments:question_bank' %}" class="btn btn-outline" style="height: 42px;">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Questions Table -->
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Question Text</th>
+        <th>Category</th>
+        <th>Difficulty</th>
+        <th>Default Marks</th>
+        <th>Options / Keys</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in page_obj %}
+        <tr>
+          <td><span class="badge badge-info">{{ q.get_question_type_display }}</span></td>
+          <td>
+            <div style="font-weight: 600; line-height: 1.35;">{{ q.question_text|truncatechars:100 }}</div>
+            {% if q.tags %}
+              <div style="margin-top: 0.25rem;">
+                <span style="font-size: 0.72rem; color: var(--text-subtle);">Tags: {{ q.tags }}</span>
+              </div>
+            {% endif %}
+          </td>
+          <td>{{ q.category.name|default:"General" }}</td>
+          <td>
+            {% if q.difficulty == 'EASY' %}
+              <span class="badge badge-success">Easy</span>
+            {% elif q.difficulty == 'HARD' %}
+              <span class="badge badge-danger">Hard</span>
+            {% else %}
+              <span class="badge badge-warning">Medium</span>
+            {% endif %}
+          </td>
+          <td><strong>{{ q.default_marks }}</strong></td>
+          <td>
+            {% if q.options.exists %}
+              <span style="font-size: 0.8rem; color: var(--text-muted);">{{ q.options.count }} choices</span>
+            {% elif q.numeric_answer %}
+              <span style="font-size: 0.8rem; font-family: var(--font-mono);">{{ q.numeric_answer }} (±{{ q.numeric_tolerance }})</span>
+            {% elif q.short_answer_accepted %}
+              <span style="font-size: 0.8rem; color: var(--text-muted);">{{ q.short_answer_accepted|truncatechars:20 }}</span>
+            {% else %}
+              <span style="font-size: 0.8rem; color: var(--text-subtle);">Manual Grading</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No questions found in question bank. Click "+ Add Question" to create one.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&type={{ type_filter }}&diff={{ diff_filter }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+    {% endif %}
+    <span style="display: flex; align-items: center; padding: 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&type={{ type_filter }}&diff={{ diff_filter }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

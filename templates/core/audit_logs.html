@@ -1,0 +1,76 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Audit Logs — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; Audit Logs{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Security & Operational Audit Trail</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Immutable log of logins, test submissions, grade adjustments, and administrative modifications.</p>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Actor / User</th>
+        <th>Action Event</th>
+        <th>Target Entity</th>
+        <th>IP Address</th>
+        <th>Audit Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in page_obj %}
+        <tr>
+          <td style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">
+            {{ log.timestamp|date:"Y-m-d H:i:s" }}
+          </td>
+          <td>
+            <strong>{{ log.user.username|default:"System Engine" }}</strong>
+            {% if log.user.employee_id %}
+              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ log.user.employee_id }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge badge-info">{{ log.action }}</span>
+          </td>
+          <td>
+            <code style="font-family: var(--font-mono); font-size: 0.85rem;">{{ log.target_model }} #{{ log.target_id }}</code>
+          </td>
+          <td style="font-size: 0.82rem; color: var(--text-muted); font-family: var(--font-mono);">
+            {{ log.ip_address|default:"127.0.0.1" }}
+          </td>
+          <td style="font-size: 0.8rem; color: var(--text-muted); max-width: 300px; word-break: break-all;">
+            {{ log.details }}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No audit records found.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+    {% endif %}
+    <span style="display: flex; align-items: center; padding: 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

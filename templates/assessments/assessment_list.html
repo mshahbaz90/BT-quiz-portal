@@ -1,0 +1,108 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Assessment Management — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; Directory{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Assessments & Quizzes</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Author, configure, schedule, and publish corporate assessments for BreakThru employees.</p>
+  </div>
+  <a href="{% url 'assessments:assessment_create' %}" class="btn btn-primary">➕ Create Assessment</a>
+</div>
+
+<!-- Search & Status Filters -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+  <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 2; min-width: 220px;">
+      <label class="form-label">Search Assessments</label>
+      <input type="text" name="q" value="{{ query }}" placeholder="Search by title or code..." class="form-input">
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        {% for s_val, s_label in statuses %}
+          <option value="{{ s_val }}" {% if status_filter == s_val %}selected{% endif %}>{{ s_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary" style="height: 42px;">Filter</button>
+      <a href="{% url 'assessments:assessment_list' %}" class="btn btn-outline" style="height: 42px;">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Table -->
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Assessment Title</th>
+        <th>Category</th>
+        <th>Questions</th>
+        <th>Duration</th>
+        <th>Pass Mark</th>
+        <th>Status</th>
+        <th style="text-align: right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in page_obj %}
+        <tr>
+          <td><strong style="font-family: var(--font-mono);">{{ a.code }}</strong></td>
+          <td>
+            <a href="{% url 'assessments:assessment_detail' a.id %}" style="font-weight: 600; color: var(--text-main);">
+              {{ a.title }}
+            </a>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">v{{ a.version }} &bull; By {{ a.created_by.username|default:"Admin" }}</div>
+          </td>
+          <td>{{ a.category.name|default:"General" }}</td>
+          <td>{{ a.assessment_questions.count }} Qs</td>
+          <td>{{ a.duration_minutes }} mins</td>
+          <td>{{ a.pass_mark_percentage }}%</td>
+          <td>
+            {% if a.status == 'PUBLISHED' %}
+              <span class="badge badge-success">Published</span>
+            {% elif a.status == 'DRAFT' %}
+              <span class="badge badge-warning">Draft</span>
+            {% else %}
+              <span class="badge badge-danger">Archived</span>
+            {% endif %}
+          </td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 0.35rem;">
+              <a href="{% url 'assessments:assessment_preview' a.id %}" class="btn btn-outline btn-sm" title="Preview as candidate">👁️ Preview</a>
+              <a href="{% url 'assessments:assessment_detail' a.id %}" class="btn btn-secondary btn-sm">⚙️ Manage</a>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No assessments found matching your filters.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&status={{ status_filter }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+    {% endif %}
+    <span style="display: flex; align-items: center; padding: 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&status={{ status_filter }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

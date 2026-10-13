@@ -1,0 +1,94 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Trainer Dashboard — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Trainer Portal &rsaquo; Overview{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.75rem;">Trainer Dashboard</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">Monitor test participation, evaluate open-ended written questions, and review team performance.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{% url 'assessments:assessment_create' %}" class="btn btn-primary">➕ Create Assessment</a>
+    <a href="{% url 'grading:queue' %}" class="btn btn-secondary">✍️ Grading Queue ({{ pending_grading_count }})</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-3" style="gap: 2rem;">
+  <!-- Submissions Feed (Span 2) -->
+  <div style="grid-column: span 2;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Recent Employee Submissions</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Assessment</th>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub in recent_submissions %}
+              <tr>
+                <td><strong>{{ sub.user.get_full_name|default:sub.user.username }}</strong></td>
+                <td>{{ sub.assessment.title|truncatechars:30 }}</td>
+                <td>
+                  {% if sub.status == 'GRADED' %}
+                    <span class="badge badge-success">Graded</span>
+                  {% elif sub.status == 'SUBMITTED' %}
+                    <span class="badge badge-warning">Needs Grading</span>
+                  {% else %}
+                    <span class="badge badge-info">{{ sub.status }}</span>
+                  {% endif %}
+                </td>
+                <td>{% if sub.percentage is not None %}<strong>{{ sub.percentage }}%</strong>{% else %}—{% endif %}</td>
+                <td>
+                  <a href="{% url 'grading:evaluate_attempt' sub.id %}" class="btn btn-outline btn-sm">Review</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No submissions yet.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your Assessments -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">My Assessments</h3>
+        <a href="{% url 'assessments:assessment_list' %}" class="btn btn-outline btn-sm">All &rarr;</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for a in created_assessments %}
+          <div style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light);">
+            <div style="font-weight: 600; font-size: 0.95rem;">{{ a.title }}</div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem; align-items: center;">
+              <span class="badge {% if a.status == 'PUBLISHED' %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.7rem;">{{ a.status }}</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">{{ a.duration_minutes }} mins &bull; {{ a.assessment_questions.count }} Qs</span>
+            </div>
+          </div>
+        {% empty %}
+          <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem; text-align: center;">
+            No assessments created yet.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

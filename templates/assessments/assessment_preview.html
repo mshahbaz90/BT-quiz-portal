@@ -1,0 +1,80 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Preview: {{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; <a href="{% url 'assessments:assessment_detail' assessment.id %}">{{ assessment.code }}</a> &rsaquo; Candidate Preview{% endblock %}
+
+{% block content %}
+<div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+  <div>
+    <strong>Candidate Preview Mode:</strong> This simulates how candidates will experience this test. Answers are not recorded.
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <h1 style="font-size: 1.5rem;">{{ assessment.title }}</h1>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Duration: {{ assessment.duration_minutes }} Mins &bull; Total Marks: {{ assessment.total_marks }}</span>
+    </div>
+    <div style="background: var(--bg-subtle); padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 700; font-family: var(--font-mono); color: var(--primary);">
+      ⏱️ {{ assessment.duration_minutes }}:00
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2rem;">
+    {% for aq in assessment.assessment_questions.all %}
+      <div style="border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--bg-surface);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+          <span class="badge badge-info">Question {{ forloop.counter }} of {{ assessment.assessment_questions.count }}</span>
+          <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">{{ aq.effective_marks }} Marks</span>
+        </div>
+
+        <h3 style="font-size: 1.15rem; margin-bottom: 1rem; font-weight: 600;">{{ aq.question.question_text }}</h3>
+
+        {% if aq.question.rich_content %}
+          <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.88rem; margin-bottom: 1rem; overflow-x: auto;">
+            {{ aq.question.rich_content }}
+          </div>
+        {% endif %}
+
+        {% if aq.question.question_type == 'SINGLE_CHOICE' or aq.question.question_type == 'TRUE_FALSE' or aq.question.question_type == 'YES_NO' %}
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for opt in aq.question.options.all %}
+              <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast);">
+                <input type="radio" name="q_{{ aq.question.id }}" disabled>
+                <span>{{ opt.option_text }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        {% elif aq.question.question_type == 'MULTIPLE_SELECT' %}
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for opt in aq.question.options.all %}
+              <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer;">
+                <input type="checkbox" name="q_{{ aq.question.id }}" disabled>
+                <span>{{ opt.option_text }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        {% elif aq.question.question_type == 'SHORT_ANSWER' or aq.question.question_type == 'FILL_BLANK' or aq.question.question_type == 'NUMERIC' %}
+          <input type="text" class="form-input" placeholder="Type answer here..." disabled>
+        {% elif aq.question.question_type == 'LONG_ANSWER' %}
+          <textarea class="form-textarea" rows="4" placeholder="Write comprehensive response here..." disabled></textarea>
+        {% elif aq.question.question_type == 'MATCHING' %}
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for opt in aq.question.options.all %}
+              <div style="display: flex; gap: 1rem; align-items: center;">
+                <div style="flex: 1; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md);">{{ opt.option_text }}</div>
+                <div style="color: var(--text-muted);">&rarr;</div>
+                <select class="form-select" style="flex: 1;" disabled>
+                  <option>{{ opt.match_target }}</option>
+                </select>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

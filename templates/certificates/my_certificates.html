@@ -1,0 +1,53 @@
+{% extends 'base/base.html' %}
+
+{% block title %}My Certificates — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}My Learning &rsaquo; Certificates{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.75rem;">Verified Certificates of Achievement</h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">Official BreakThru credentials earned by successfully completing and passing corporate assessments.</p>
+</div>
+
+<div class="grid grid-cols-2">
+  {% for cert in certificates %}
+    <div class="card" style="display: flex; gap: 1.5rem; align-items: center; padding: 1.75rem;">
+      <div style="font-size: 3rem; background: rgba(2, 132, 199, 0.1); width: 80px; height: 80px; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center;">
+        🏆
+      </div>
+
+      <div style="flex: 1;">
+        <span class="badge badge-success" style="margin-bottom: 0.35rem;">VERIFIED</span>
+        <h3 style="font-size: 1.2rem; margin-bottom: 0.25rem;">{{ cert.assessment.title }}</h3>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          Score: <strong>{{ cert.score_percentage }}%</strong> &bull; Issued: {{ cert.issued_at|date:"F d, Y" }}
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-subtle); margin-bottom: 1rem;">
+          ID: {{ cert.certificate_code }}
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <a href="{% url 'certificates:download_pdf' cert.id %}" class="btn btn-primary btn-sm">
+            📥 Download PDF
+          </a>
+          <a href="{% url 'certificates:verify_public' cert.certificate_id %}" class="btn btn-outline btn-sm" target="_blank">
+            🔗 Public Verify
+          </a>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="card" style="grid-column: span 2; text-align: center; padding: 3.5rem; color: var(--text-muted);">
+      <div style="font-size: 3rem; margin-bottom: 0.75rem;">🎖️</div>
+      <h3 style="font-size: 1.25rem;">No certificates issued yet</h3>
+      <p style="font-size: 0.9rem; margin-top: 0.35rem; margin-bottom: 1.5rem;">
+        Pass your assigned assessments to earn verified corporate achievement certificates.
+      </p>
+      <a href="{% url 'assessments:employee_list' %}" class="btn btn-primary">
+        Browse Available Assessments &rarr;
+      </a>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
