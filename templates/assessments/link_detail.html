@@ -1,0 +1,182 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ link.name }} — Link Dashboard — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}<a href="{% url 'assessments:link_list' %}">Assessment Links</a> &rsaquo; {{ link.name }}{% endblock %}
+
+{% block content %}
+<!-- Link Header Card -->
+<div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+        <span class="badge badge-info">ClassMarker Link</span>
+        <span style="font-family: var(--font-mono); font-weight: 700; color: #c4b5fd;">{{ link.link_code }}</span>
+        {% if link.is_active %}
+          <span class="badge badge-success">Active</span>
+        {% else %}
+          <span class="badge badge-danger">Paused</span>
+        {% endif %}
+      </div>
+      <h1 style="font-size: 1.65rem;">{{ link.name }}</h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+        Delivers Assessment: <a href="{% url 'assessments:assessment_detail' link.assessment.id %}" style="color: #60a5fa; font-weight: 600;">{{ link.assessment.title }} ({{ link.assessment.code }})</a>
+      </p>
+    </div>
+
+    <!-- Actions Toolbar -->
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="/links/{{ link.link_code }}/" target="_blank" class="btn btn-outline" title="Open Candidate Landing in New Tab">
+        👁️ Open Link
+      </a>
+      <a href="{% url 'assessments:link_edit' link.id %}" class="btn btn-secondary" title="Edit Link Settings">
+        ✏️ Edit Settings
+      </a>
+      <form method="POST" action="{% url 'assessments:link_toggle' link.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn {% if link.is_active %}btn-outline{% else %}btn-success{% endif %}">
+          {% if link.is_active %}⏸️ Pause Link{% else %}▶️ Activate Link{% endif %}
+        </button>
+      </form>
+      <a href="{% url 'assessments:link_delete' link.id %}" class="btn btn-outline" style="color: var(--danger);">
+        🗑️ Delete
+      </a>
+    </div>
+  </div>
+
+  <!-- Share URL Callout Box -->
+  <div style="background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 8px; padding: 1.25rem; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div style="flex: 1; min-width: 280px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #a78bfa; letter-spacing: 0.05em;">
+        Direct Candidate URL to Share (Email / SMS / Chat / Portal)
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-main); margin-top: 0.35rem; word-break: break-all;">
+        <span id="full-link-url">{{ request.scheme }}://{{ request.get_host }}/links/{{ link.link_code }}/</span>
+      </div>
+      {% if link.access_code %}
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+          Required Access PIN: <strong style="font-family: var(--font-mono); color: #c4b5fd;">{{ link.access_code }}</strong>
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="button" class="btn btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('full-link-url').innerText); this.innerText='✓ Link Copied!'; setTimeout(() => this.innerText='📋 Copy Link', 2000);">
+        📋 Copy Link
+      </button>
+    </div>
+  </div>
+
+  <!-- Key Metrics Grid -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-light); font-size: 0.85rem;">
+    <div>
+      <div style="color: var(--text-muted);">Total Attempts</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: var(--text-main);">{{ total_attempts }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Completed</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: #60a5fa;">{{ completed_count }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Passed Candidates</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: var(--success);">{{ passed_count }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Failed Candidates</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: var(--danger);">{{ failed_count }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Average Score</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: #a78bfa;">
+        {% if avg_score is not None %}{{ avg_score }}%{% else %}&mdash;{% endif %}
+      </div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Capacity Quota</div>
+      <div style="font-weight: 600; font-size: 1rem; color: var(--text-main);">
+        {% if link.max_completions > 0 %}{{ link.max_completions }} max{% else %}Unlimited{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Candidate Attempts Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="font-size: 1.15rem; margin: 0;">Candidate Results on this Link ({{ attempts.count }})</h2>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Reference / Employee ID</th>
+          <th>Department</th>
+          <th>Submitted</th>
+          <th>Score</th>
+          <th>Result</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for att in attempts %}
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: var(--text-main);">
+                {{ att.participant_name|default:att.user.get_full_name|default:att.user.username }}
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ att.participant_email|default:att.user.email }}
+              </div>
+            </td>
+            <td>
+              <span style="font-family: var(--font-mono); font-size: 0.85rem;">
+                {{ att.participant_employee_id|default:att.user.employee_id|default:"&mdash;" }}
+              </span>
+            </td>
+            <td>
+              <span style="font-size: 0.85rem; color: var(--text-muted);">
+                {{ att.participant_department|default:att.user.department.name|default:"&mdash;" }}
+              </span>
+            </td>
+            <td style="font-size: 0.85rem;">
+              {{ att.submitted_at|date:"M d, Y H:i"|default:"In Progress" }}
+            </td>
+            <td>
+              {% if att.percentage is not None %}
+                <span style="font-weight: 700; font-family: var(--font-mono);">{{ att.percentage }}%</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">({{ att.total_score }}/{{ att.max_possible_marks }})</span>
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+            <td>
+              {% if att.status == 'SUBMITTED' or att.status == 'GRADED' %}
+                {% if att.is_passed %}
+                  <span class="badge badge-success">PASSED</span>
+                {% else %}
+                  <span class="badge badge-danger">FAILED</span>
+                {% endif %}
+              {% else %}
+                <span class="badge badge-warning">{{ att.status }}</span>
+              {% endif %}
+            </td>
+            <td style="text-align: right;">
+              <a href="{% url 'exam:attempt_result' att.id %}" class="btn btn-sm btn-outline">
+                View Result &rarr;
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+              No attempts have been taken via this link yet. Share the URL above with candidates to begin collecting responses!
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

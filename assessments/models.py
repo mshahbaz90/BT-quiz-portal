@@ -1,5 +1,7 @@
+import uuid
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -119,6 +121,56 @@ class Assessment(models.Model):
     def total_marks(self):
         total = sum(item.effective_marks for item in self.assessment_questions.all())
         return total or 0
+
+
+class AssessmentLink(models.Model):
+    assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='links')
+    name = models.CharField(max_length=150, help_text="e.g. Q1 Graduate Recruitment Link")
+    link_code = models.CharField(max_length=32, unique=True, db_index=True)
+    is_active = models.BooleanField(default=True)
+
+    # Access Protection & PIN
+    access_code = models.CharField(max_length=50, blank=True, help_text="Optional password / PIN required to open this link")
+    allowed_email_domains = models.CharField(max_length=255, blank=True, help_text="Comma-separated allowed domains, e.g. @breakthru.pk")
+
+    # Participant Details to Collect
+    require_employee_id = models.BooleanField(default=True, help_text="Require Employee ID / Roll number")
+    collect_name = models.BooleanField(default=True, help_text="Collect Candidate Name")
+    collect_email = models.BooleanField(default=True, help_text="Collect Candidate Email")
+    collect_department = models.BooleanField(default=False, help_text="Collect Candidate Department")
+
+    # Limits & Scheduling
+    max_completions = models.PositiveIntegerField(default=0, help_text="0 for unlimited total participants")
+    max_attempts_per_user = models.PositiveIntegerField(default=1, help_text="Max attempts per candidate")
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_links')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.link_code:
+            self.link_code = str(uuid.uuid4()).replace('-', '')[:10].upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.link_code}) - {self.assessment.code}"
+
+    def check_availability(self):
+        now = timezone.now()
+        if not self.is_active:
+            return False, "This assessment link has been paused by the administrator."
+        if self.start_date and now < self.start_date:
+            return False, f"This assessment link is not open yet. It opens on {self.start_date.strftime('%Y-%m-%d %H:%M')}."
+        if self.end_date and now > self.end_date:
+            return False, f"This assessment link expired on {self.end_date.strftime('%Y-%m-%d %H:%M')}."
+        if self.max_completions > 0 and self.link_attempts.count() >= self.max_completions:
+            return False, "This assessment link has reached its maximum participant capacity."
+        return True, ""
 
 
 class Question(models.Model):

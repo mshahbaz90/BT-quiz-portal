@@ -1,0 +1,157 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Assessment Links (ClassMarker Links) — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; Direct Assessment Links{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #a78bfa; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+        ClassMarker-Style Test Delivery
+      </div>
+      <h1 style="font-size: 1.65rem;">Direct Assessment Links</h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+        Generate and manage controlled public or private direct links for employee cohorts, applicants, or external testing.
+      </p>
+    </div>
+
+    <div>
+      <a href="{% url 'assessments:link_create' %}" class="btn btn-primary" style="box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);">
+        ➕ Generate New Link
+      </a>
+    </div>
+  </div>
+
+  <!-- Search & Filter Controls -->
+  <form method="GET" style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 2; min-width: 220px;">
+      <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="Search link name, code, or assessment...">
+    </div>
+    <div style="flex: 1; min-width: 180px;">
+      <select name="assessment_id" class="form-select">
+        <option value="">All Assessments</option>
+        {% for a in assessments %}
+          <option value="{{ a.id }}" {% if selected_assessment == a.id|stringformat:"s" %}selected{% endif %}>{{ a.code }} - {{ a.title|truncatechars:40 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width: 130px;">
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Paused</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    {% if query or selected_assessment or status_filter %}
+      <a href="{% url 'assessments:link_list' %}" class="btn btn-outline">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Links Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Link Name & Code</th>
+          <th>Assessment</th>
+          <th>Direct URL</th>
+          <th>Protection & Quota</th>
+          <th>Attempts</th>
+          <th>Status</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for link in page_obj %}
+          <tr>
+            <td>
+              <a href="{% url 'assessments:link_detail' link.id %}" style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">
+                {{ link.name }}
+              </a>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                Code: <span style="color: #c4b5fd;">{{ link.link_code }}</span>
+              </div>
+            </td>
+            <td>
+              <a href="{% url 'assessments:assessment_detail' link.assessment.id %}" style="color: #60a5fa; font-weight: 600;">
+                {{ link.assessment.title }}
+              </a>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">{{ link.assessment.code }} &bull; {{ link.assessment.duration_minutes }} Min</div>
+            </td>
+            <td style="max-width: 240px;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="text" readonly value="{{ request.scheme }}://{{ request.get_host }}/links/{{ link.link_code }}/" id="link-input-{{ link.id }}" class="form-input" style="font-size: 0.78rem; font-family: var(--font-mono); padding: 4px 8px; background: rgba(5, 2, 18, 0.6); border: 1px solid var(--border-light);" onclick="this.select();">
+                <button type="button" class="btn btn-sm btn-outline" title="Copy URL" onclick="navigator.clipboard.writeText(document.getElementById('link-input-{{ link.id }}').value); this.innerText='✓'; setTimeout(() => this.innerText='📋', 1500);">
+                  📋
+                </button>
+              </div>
+            </td>
+            <td style="font-size: 0.82rem;">
+              {% if link.access_code %}
+                <span class="badge badge-warning" style="font-size: 0.7rem;">PIN: {{ link.access_code }}</span>
+              {% else %}
+                <span class="badge badge-info" style="font-size: 0.7rem;">Open PIN</span>
+              {% endif %}
+              {% if link.max_completions > 0 %}
+                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Cap: {{ link.max_completions }} takers</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-secondary" style="font-weight: 700;">
+                {{ link.link_attempts.count }}
+              </span>
+            </td>
+            <td>
+              {% if link.is_active %}
+                <span class="badge badge-success">Active</span>
+              {% else %}
+                <span class="badge badge-danger">Paused</span>
+              {% endif %}
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+              <a href="{% url 'assessments:link_detail' link.id %}" class="btn btn-sm btn-outline" title="View Link Analytics & Results">
+                📊 Stats
+              </a>
+              <a href="{% url 'assessments:link_edit' link.id %}" class="btn btn-sm btn-secondary" title="Configure Link">
+                ✏️
+              </a>
+              <form method="POST" action="{% url 'assessments:link_toggle' link.id %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline" title="{% if link.is_active %}Pause Link{% else %}Activate Link{% endif %}">
+                  {% if link.is_active %}⏸️{% else %}▶️{% endif %}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+              No assessment links found. Generate your first ClassMarker-style direct link to distribute tests!
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+    <div style="display: flex; justify-content: center; gap: 0.5rem; padding: 1.25rem; border-top: 1px solid var(--border-light);">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&assessment_id={{ selected_assessment }}&status={{ status_filter }}" class="btn btn-sm btn-outline">&larr; Previous</a>
+      {% endif %}
+      <span style="font-size: 0.85rem; color: var(--text-muted); align-self: center;">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&assessment_id={{ selected_assessment }}&status={{ status_filter }}" class="btn btn-sm btn-outline">Next &rarr;</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

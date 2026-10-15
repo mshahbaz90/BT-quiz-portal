@@ -1,0 +1,150 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ link.name }} — {{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Direct Assessment Link &rsaquo; {{ link.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 840px; margin: 0 auto; padding: 1rem 0;">
+  <!-- Direct Link Banner -->
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #a78bfa; letter-spacing: 0.06em;">
+        🔗 Direct Assessment Link &bull; ClassMarker Testing Mode
+      </div>
+      <h1 style="font-size: 1.85rem; margin-top: 0.25rem; color: var(--text-main);">{{ assessment.title }}</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">
+        Link: <strong>{{ link.name }}</strong> (Code: <code style="font-family: var(--font-mono); color: #c4b5fd;">{{ link.link_code }}</code>)
+      </p>
+    </div>
+    <div>
+      <span class="badge badge-success" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">● Link Active</span>
+    </div>
+  </div>
+
+  {% if form_errors %}
+    <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+      <div style="font-weight: 700; margin-bottom: 0.35rem;">⚠️ Please review the following before continuing:</div>
+      <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.9rem;">
+        {% for err in form_errors %}
+          <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <!-- Assessment Key Stats Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Duration</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: #a78bfa; margin-top: 0.25rem;">{{ assessment.duration_minutes }} Min</div>
+    </div>
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Questions</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: #60a5fa; margin-top: 0.25rem;">{{ assessment.assessment_questions.count }}</div>
+    </div>
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Passing Score</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: var(--success); margin-top: 0.25rem;">{{ assessment.pass_mark_percentage }}%</div>
+    </div>
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Attempts Allowed</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem;">
+        {% if link.max_attempts_per_user > 0 %}{{ link.max_attempts_per_user }}{% else %}Unlimited{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions Section -->
+  {% if assessment.instructions %}
+    <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--text-main);">Assessment Guidelines & Instructions</h3>
+      <div style="line-height: 1.6; font-size: 0.92rem; color: var(--text-muted);">
+        {{ assessment.instructions|linebreaks }}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Participant Details & Start Form -->
+  <div class="card" style="padding: 2rem; border-color: rgba(124, 58, 237, 0.4); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);">
+    <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.35rem; color: var(--text-main);">Candidate Information</h2>
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 0.25rem;">
+        Please confirm your candidate details before commencing the timed assessment session.
+      </p>
+    </div>
+
+    {% if request.user.is_authenticated %}
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.88rem; color: #6ee7b7; display: flex; align-items: center; gap: 0.5rem;">
+        <span>✓</span>
+        <div>Logged in as <strong>{{ request.user.username }}</strong> ({{ request.user.email }})</div>
+      </div>
+    {% endif %}
+
+    <form method="POST">
+      {% csrf_token %}
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+        {% if link.collect_name %}
+          <div class="form-group">
+            <label class="form-label" for="id_name">Full Name <span style="color: var(--danger);">*</span></label>
+            <input type="text" name="name" id="id_name" class="form-input" required value="{{ current_name }}" placeholder="e.g. Alexander Vance">
+          </div>
+        {% endif %}
+
+        {% if link.collect_email %}
+          <div class="form-group">
+            <label class="form-label" for="id_email">Email Address <span style="color: var(--danger);">*</span></label>
+            <input type="email" name="email" id="id_email" class="form-input" required value="{{ current_email }}" placeholder="e.g. alexander@company.com">
+            {% if link.allowed_email_domains %}
+              <div class="form-hint" style="font-size: 0.78rem; color: #a78bfa; margin-top: 0.25rem;">
+                Only corporate emails from <strong>{{ link.allowed_email_domains }}</strong> are accepted.
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if link.require_employee_id %}
+          <div class="form-group">
+            <label class="form-label" for="id_employee_id">Employee ID / Candidate Reference <span style="color: var(--danger);">*</span></label>
+            <input type="text" name="employee_id" id="id_employee_id" class="form-input" required value="{{ current_emp_id }}" placeholder="e.g. BT-4091">
+          </div>
+        {% endif %}
+
+        {% if link.collect_department %}
+          <div class="form-group">
+            <label class="form-label" for="id_department">Department / Team</label>
+            <input type="text" name="department" id="id_department" class="form-input" value="{{ current_dept }}" placeholder="e.g. Engineering, Sales, Operations">
+          </div>
+        {% endif %}
+
+        {% if link.access_code %}
+          <div class="form-group" style="grid-column: 1 / -1; max-width: 360px;">
+            <label class="form-label" for="id_access_code">Access PIN / Password <span style="color: var(--danger);">*</span></label>
+            <input type="text" name="access_code" id="id_access_code" class="form-input" required placeholder="Enter assigned security PIN">
+            <div class="form-hint" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
+              This assessment link is protected. Enter the PIN provided by your test administrator.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Testing Rules Acknowledgment -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+        <div style="font-weight: 600; color: var(--text-main); margin-bottom: 0.35rem;">Exam Session Agreement:</div>
+        <ul style="margin: 0; padding-left: 1.25rem;">
+          <li>Once started, the timer runs continuously on the server and cannot be paused.</li>
+          <li>Your responses are automatically saved every few seconds in real time.</li>
+          <li>Tab switching and window blur events are logged in the audit ledger.</li>
+        </ul>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="submit" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1.05rem; font-weight: 700; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);">
+          Start Assessment Now 🚀
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

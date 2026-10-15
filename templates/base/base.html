@@ -59,6 +59,10 @@
             <span class="nav-icon">🏷️</span>
             <span>Categories</span>
           </a>
+          <a href="{% url 'assessments:link_list' %}" class="nav-link {% if 'links' in request.path %}active{% endif %}" id="nav-assessment-links">
+            <span class="nav-icon">🔗</span>
+            <span>Links & Access</span>
+          </a>
           <a href="{% url 'grading:queue' %}" class="nav-link {% if 'grading' in request.path %}active{% endif %}" id="nav-grading-queue">
             <span class="nav-icon">✍️</span>
             <span>Grading Queue</span>

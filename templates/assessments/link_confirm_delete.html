@@ -1,0 +1,36 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Delete Link: {{ link.name }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}<a href="{% url 'assessments:link_list' %}">Assessment Links</a> &rsaquo; Delete{% endblock %}
+
+{% block content %}
+<div style="max-width: 580px; margin: 3rem auto;">
+  <div class="card" style="padding: 2.25rem; text-align: center; border-color: rgba(239, 68, 68, 0.4);">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+    <h1 style="font-size: 1.5rem; color: var(--text-main); margin-bottom: 0.75rem;">Delete Assessment Link?</h1>
+    
+    <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.5rem;">
+      Are you sure you want to delete the direct assessment link <strong>"{{ link.name }}"</strong> (<code>{{ link.link_code }}</code>)?
+      Candidates will no longer be able to access the assessment through this URL.
+    </p>
+
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; text-align: left; font-size: 0.88rem;">
+      <div><strong>Assessment:</strong> {{ link.assessment.title }}</div>
+      <div style="color: var(--text-muted); margin-top: 0.25rem;"><strong>Attempts recorded:</strong> {{ link.link_attempts.count }} candidate attempts</div>
+    </div>
+
+    <form method="POST">
+      {% csrf_token %}
+      <div style="display: flex; gap: 1rem; justify-content: center;">
+        <a href="{% url 'assessments:link_detail' link.id %}" class="btn btn-secondary">
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-danger" style="padding: 0.65rem 1.75rem;">
+          Yes, Delete Link
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

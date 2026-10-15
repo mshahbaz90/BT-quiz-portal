@@ -27,7 +27,7 @@ def results_list_view(request):
     result_filter = request.GET.get('result', '')
 
     attempts = AssessmentAttempt.objects.select_related(
-        'user__department', 'user__team', 'assessment', 'certificate'
+        'user__department', 'user__team', 'assessment', 'certificate', 'link'
     ).order_by('-started_at')
 
     if q:
@@ -36,6 +36,10 @@ def results_list_view(request):
             models.Q(user__last_name__icontains=q) |
             models.Q(user__username__icontains=q) |
             models.Q(user__employee_id__icontains=q) |
+            models.Q(participant_name__icontains=q) |
+            models.Q(participant_email__icontains=q) |
+            models.Q(participant_employee_id__icontains=q) |
+            models.Q(link__name__icontains=q) |
             models.Q(assessment__title__icontains=q) |
             models.Q(assessment__code__icontains=q)
         )
@@ -165,22 +169,27 @@ def export_attempts_csv_view(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="breakthru_assessment_attempts.csv"'
 
-    writer = csv.writer(response)
     writer.writerow([
         'Attempt ID', 'Candidate Name', 'Employee ID', 'Department',
-        'Assessment Code', 'Assessment Title', 'Version', 'Attempt Number',
+        'Link Source', 'Assessment Code', 'Assessment Title', 'Version', 'Attempt Number',
         'Status', 'Started At', 'Submitted At', 'Earned Marks', 'Max Marks',
         'Percentage', 'Result'
     ])
 
-    attempts = AssessmentAttempt.objects.select_related('user__department', 'assessment').order_by('-started_at')
+    attempts = AssessmentAttempt.objects.select_related('user__department', 'assessment', 'link').order_by('-started_at')
 
     for att in attempts:
+        c_name = att.participant_name or att.user.get_full_name() or att.user.username
+        c_emp = att.participant_employee_id or att.user.employee_id or ''
+        c_dept = att.participant_department or (att.user.department.name if att.user.department else '')
+        link_str = att.link.name if att.link else 'Direct / Group'
+
         writer.writerow([
             att.id,
-            att.user.get_full_name() or att.user.username,
-            att.user.employee_id or '',
-            att.user.department.name if att.user.department else '',
+            c_name,
+            c_emp,
+            c_dept,
+            link_str,
             att.assessment.code,
             att.assessment.title,
             att.assessment_version,
@@ -213,7 +222,7 @@ def export_attempts_excel_view(request):
 
     headers = [
         'Attempt ID', 'Candidate Name', 'Employee ID', 'Department',
-        'Assessment Code', 'Assessment Title', 'Attempt #',
+        'Link Source', 'Assessment Code', 'Assessment Title', 'Attempt #',
         'Status', 'Score', 'Percentage', 'Result', 'Date'
     ]
 
@@ -224,15 +233,21 @@ def export_attempts_excel_view(request):
         cell.fill = header_fill
         cell.alignment = header_align
 
-    attempts = AssessmentAttempt.objects.select_related('user__department', 'assessment').order_by('-started_at')
+    attempts = AssessmentAttempt.objects.select_related('user__department', 'assessment', 'link').order_by('-started_at')
 
     for att in attempts:
         result_str = 'PASSED' if att.is_passed is True else ('FAILED' if att.is_passed is False else 'PENDING')
+        c_name = att.participant_name or att.user.get_full_name() or att.user.username
+        c_emp = att.participant_employee_id or att.user.employee_id or ''
+        c_dept = att.participant_department or (att.user.department.name if att.user.department else '')
+        link_str = att.link.name if att.link else 'Direct / Group'
+
         ws.append([
             att.id,
-            att.user.get_full_name() or att.user.username,
-            att.user.employee_id or '',
-            att.user.department.name if att.user.department else '',
+            c_name,
+            c_emp,
+            c_dept,
+            link_str,
             att.assessment.code,
             att.assessment.title,
             att.attempt_number,

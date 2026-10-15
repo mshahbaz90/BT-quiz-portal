@@ -1,5 +1,5 @@
 from django import forms
-from assessments.models import Assessment, Question, QuestionOption, Category, QuestionType, Difficulty
+from assessments.models import Assessment, AssessmentLink, Question, QuestionOption, Category, QuestionType, Difficulty
 from accounts.models import Department
 
 
@@ -81,3 +81,52 @@ class QuestionForm(forms.ModelForm):
             'numeric_tolerance': forms.NumberInput(attrs={'class': 'form-input', 'step': 'any'}),
             'short_answer_accepted': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Pipe-separated answers (e.g. SQL|Structured Query Language)'}),
         }
+
+
+class AssessmentLinkForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentLink
+        fields = [
+            'name', 'assessment', 'access_code', 'allowed_email_domains',
+            'require_employee_id', 'collect_name', 'collect_email', 'collect_department',
+            'max_completions', 'max_attempts_per_user', 'start_date', 'end_date', 'is_active'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'e.g. Q4 Campus Recruitment / External Candidate Link'
+            }),
+            'assessment': forms.Select(attrs={'class': 'form-select'}),
+            'access_code': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Optional Link Password / PIN'
+            }),
+            'allowed_email_domains': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'e.g. @breakthru.com, @techcorp.pk (leave blank for any)'
+            }),
+            'max_completions': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': 0,
+                'placeholder': '0 for unlimited total respondents'
+            }),
+            'max_attempts_per_user': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': 1,
+                'placeholder': '1'
+            }),
+            'start_date': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local'
+            }),
+            'end_date': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for f in ['access_code', 'allowed_email_domains', 'start_date', 'end_date']:
+            if f in self.fields:
+                self.fields[f].required = False

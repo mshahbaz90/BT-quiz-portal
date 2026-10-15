@@ -1,17 +1,149 @@
 import json
 import random
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.utils import timezone
+from django.utils.text import slugify
 from django.db import transaction
 
-from assessments.models import Assessment, QuestionType
+from accounts.models import User, Role
+from assessments.models import Assessment, AssessmentLink, QuestionType
 from exam.models import AssessmentAttempt, AttemptQuestionSnapshot, AttemptResponse
 from grading.services import grade_attempt
 from core.models import AuditLog
+
+
+def initialize_attempt(assessment, user, link=None, participant_info=None, ip_address=None, user_agent='', attempt_number=1):
+    """
+    ClassMarker-standard attempt initiator.
+    Selects questions (random pool / shuffle), creates immutable question snapshots and blank response rows.
+    """
+    now = timezone.now()
+    duration_minutes = assessment.duration_minutes
+    deadline = now + timedelta(minutes=duration_minutes) if duration_minutes > 0 else now + timedelta(hours=24)
+
+    p_info = participant_info or {}
+
+    with transaction.atomic():
+        attempt = AssessmentAttempt.objects.create(
+            user=user,
+            assessment=assessment,
+            link=link,
+            participant_name=p_info.get('name', ''),
+            participant_email=p_info.get('email', ''),
+            participant_employee_id=p_info.get('employee_id', ''),
+            participant_department=p_info.get('department', ''),
+            assessment_version=assessment.version,
+            attempt_number=attempt_number,
+            deadline_at=deadline,
+            ip_address=ip_address,
+            user_agent=user_agent[:250],
+        )
+
+        attached_items = list(assessment.assessment_questions.select_related('question').prefetch_related('question__options').all())
+        if assessment.random_pool_count > 0 and len(attached_items) > assessment.random_pool_count:
+            attached_items = random.sample(attached_items, assessment.random_pool_count)
+        elif assessment.shuffle_questions:
+            random.shuffle(attached_items)
+
+        total_max_marks = Decimal('0.00')
+
+        for index, item in enumerate(attached_items, start=1):
+            q = item.question
+            alloc_marks = item.effective_marks
+            total_max_marks += alloc_marks
+
+            snapshot_data = {}
+            q_type = q.question_type
+
+            if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT, QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
+                options = list(q.options.all())
+                if assessment.shuffle_options and q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT]:
+                    random.shuffle(options)
+
+                choices_list = []
+                correct_ids = []
+                correct_single = None
+
+                for opt in options:
+                    choices_list.append({
+                        'id': opt.id,
+                        'text': opt.option_text,
+                    })
+                    if opt.is_correct:
+                        correct_ids.append(opt.id)
+                        correct_single = opt.id
+
+                snapshot_data['choices'] = choices_list
+                snapshot_data['correct_option_ids'] = correct_ids
+                snapshot_data['correct_option_id'] = correct_single
+
+            elif q_type in [QuestionType.SHORT_ANSWER, QuestionType.FILL_BLANK]:
+                accepted = [a.strip() for a in q.short_answer_accepted.split('|') if a.strip()]
+                snapshot_data['accepted_answers'] = accepted
+
+            elif q_type == QuestionType.NUMERIC:
+                snapshot_data['numeric_answer'] = str(q.numeric_answer) if q.numeric_answer is not None else None
+                snapshot_data['numeric_tolerance'] = str(q.numeric_tolerance)
+
+            elif q_type == QuestionType.MATCHING:
+                options = list(q.options.all())
+                pairs = {}
+                targets = []
+                for opt in options:
+                    pairs[opt.option_text] = opt.match_target
+                    targets.append(opt.match_target)
+                random.shuffle(targets)
+                snapshot_data['prompts'] = list(pairs.keys())
+                snapshot_data['target_choices'] = targets
+                snapshot_data['matching_pairs'] = pairs
+
+            elif q_type == QuestionType.ORDERING:
+                options = sorted(list(q.options.all()), key=lambda x: x.correct_order)
+                correct_order = [opt.option_text for opt in options]
+                shuffled_items = list(correct_order)
+                random.shuffle(shuffled_items)
+                snapshot_data['items'] = shuffled_items
+                snapshot_data['correct_order'] = correct_order
+
+            snapshot = AttemptQuestionSnapshot.objects.create(
+                attempt=attempt,
+                question=q,
+                order_index=index,
+                question_type=q_type,
+                question_text=q.question_text,
+                rich_content=q.rich_content,
+                marks_allocated=alloc_marks,
+                hint=q.hint,
+                explanation=q.explanation,
+                snapshot_data=snapshot_data
+            )
+
+            AttemptResponse.objects.create(
+                attempt=attempt,
+                snapshot=snapshot,
+                response_data={}
+            )
+
+        attempt.total_questions = len(attached_items)
+        attempt.max_possible_marks = total_max_marks
+        attempt.save(update_fields=['total_questions', 'max_possible_marks'])
+
+        AuditLog.objects.create(
+            user=user,
+            action='ATTEMPT_STARTED',
+            target_model='AssessmentAttempt',
+            target_id=str(attempt.id),
+            ip_address=ip_address,
+            details={'assessment_code': assessment.code, 'attempt_number': attempt.attempt_number, 'link_code': link.link_code if link else None}
+        )
+
+    return attempt
 
 
 @login_required
@@ -78,127 +210,182 @@ def start_instruction_view(request, assessment_id):
                     'entered_code': entered_code,
                 })
 
-        # Initiate new assessment attempt with snapshotting
-        with transaction.atomic():
-            attempt_number = completed_attempts_count + 1
-            duration_minutes = assessment.duration_minutes
-            deadline = now + timedelta(minutes=duration_minutes)
-
-            attempt = AssessmentAttempt.objects.create(
-                user=user,
-                assessment=assessment,
-                assessment_version=assessment.version,
-                attempt_number=attempt_number,
-                deadline_at=deadline,
-                ip_address=getattr(request, 'client_ip', None),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[:250],
-            )
-
-            # Gather questions from assessment
-            attached_items = list(assessment.assessment_questions.select_related('question').prefetch_related('question__options').all())
-            if assessment.random_pool_count > 0 and len(attached_items) > assessment.random_pool_count:
-                attached_items = random.sample(attached_items, assessment.random_pool_count)
-            elif assessment.shuffle_questions:
-                random.shuffle(attached_items)
-
-            total_max_marks = Decimal('0.00')
-
-            # Create snapshots
-            for index, item in enumerate(attached_items, start=1):
-                q = item.question
-                alloc_marks = item.effective_marks
-                total_max_marks += alloc_marks
-
-                snapshot_data = {}
-                q_type = q.question_type
-
-                if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT, QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
-                    options = list(q.options.all())
-                    if assessment.shuffle_options and q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT]:
-                        random.shuffle(options)
-
-                    choices_list = []
-                    correct_ids = []
-                    correct_single = None
-
-                    for opt in options:
-                        choices_list.append({
-                            'id': opt.id,
-                            'text': opt.option_text,
-                        })
-                        if opt.is_correct:
-                            correct_ids.append(opt.id)
-                            correct_single = opt.id
-
-                    snapshot_data['choices'] = choices_list
-                    snapshot_data['correct_option_ids'] = correct_ids
-                    snapshot_data['correct_option_id'] = correct_single
-
-                elif q_type in [QuestionType.SHORT_ANSWER, QuestionType.FILL_BLANK]:
-                    accepted = [a.strip() for a in q.short_answer_accepted.split('|') if a.strip()]
-                    snapshot_data['accepted_answers'] = accepted
-
-                elif q_type == QuestionType.NUMERIC:
-                    snapshot_data['numeric_answer'] = str(q.numeric_answer) if q.numeric_answer is not None else None
-                    snapshot_data['numeric_tolerance'] = str(q.numeric_tolerance)
-
-                elif q_type == QuestionType.MATCHING:
-                    options = list(q.options.all())
-                    pairs = {}
-                    targets = []
-                    for opt in options:
-                        pairs[opt.option_text] = opt.match_target
-                        targets.append(opt.match_target)
-                    random.shuffle(targets)
-                    snapshot_data['prompts'] = list(pairs.keys())
-                    snapshot_data['target_choices'] = targets
-                    snapshot_data['matching_pairs'] = pairs
-
-                elif q_type == QuestionType.ORDERING:
-                    options = sorted(list(q.options.all()), key=lambda x: x.correct_order)
-                    correct_order = [opt.option_text for opt in options]
-                    shuffled_items = list(correct_order)
-                    random.shuffle(shuffled_items)
-                    snapshot_data['items'] = shuffled_items
-                    snapshot_data['correct_order'] = correct_order
-
-                snapshot = AttemptQuestionSnapshot.objects.create(
-                    attempt=attempt,
-                    question=q,
-                    order_index=index,
-                    question_type=q_type,
-                    question_text=q.question_text,
-                    rich_content=q.rich_content,
-                    marks_allocated=alloc_marks,
-                    hint=q.hint,
-                    explanation=q.explanation,
-                    snapshot_data=snapshot_data
-                )
-
-                AttemptResponse.objects.create(
-                    attempt=attempt,
-                    snapshot=snapshot,
-                    response_data={}
-                )
-
-            attempt.total_questions = len(attached_items)
-            attempt.max_possible_marks = total_max_marks
-            attempt.save(update_fields=['total_questions', 'max_possible_marks'])
-
-            AuditLog.objects.create(
-                user=user,
-                action='ATTEMPT_STARTED',
-                target_model='AssessmentAttempt',
-                target_id=str(attempt.id),
-                ip_address=getattr(request, 'client_ip', None),
-                details={'assessment_code': assessment.code, 'attempt_number': attempt.attempt_number}
-            )
-
+        attempt = initialize_attempt(
+            assessment=assessment,
+            user=user,
+            participant_info={
+                'name': user.get_full_name() or user.username,
+                'email': user.email,
+                'employee_id': user.employee_id or '',
+                'department': user.department.name if user.department else '',
+            },
+            ip_address=getattr(request, 'client_ip', None),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            attempt_number=completed_attempts_count + 1
+        )
         return redirect('exam:take_assessment', attempt_id=attempt.id)
 
     return render(request, 'exam/instruction.html', {
         'assessment': assessment,
         'completed_count': completed_attempts_count,
+    })
+
+
+def public_link_entry_view(request, link_code):
+    """
+    ClassMarker-standard Direct Link Landing and Entry Gateway.
+    Allows candidate access with optional PIN, participant metadata collection,
+    domain checks, quota enforcement, and instant exam launch.
+    """
+    link = get_object_or_404(
+        AssessmentLink.objects.select_related('assessment', 'assessment__category'),
+        link_code__iexact=link_code
+    )
+    assessment = link.assessment
+    now = timezone.now()
+
+    is_available, unavail_reason = link.check_availability()
+    if not is_available:
+        return render(request, 'exam/link_unavailable.html', {
+            'link': link,
+            'assessment': assessment,
+            'reason': unavail_reason,
+        })
+
+    # Check for active in-progress attempt for signed-in user
+    if request.user.is_authenticated:
+        active_attempt = AssessmentAttempt.objects.filter(
+            user=request.user,
+            assessment=assessment,
+            link=link,
+            status=AssessmentAttempt.Status.IN_PROGRESS,
+            deadline_at__gt=now
+        ).first()
+        if active_attempt:
+            if assessment.allow_save_and_resume:
+                return redirect('exam:take_assessment', attempt_id=active_attempt.id)
+
+    # Check attempt limit for logged-in user
+    if request.user.is_authenticated and link.max_attempts_per_user > 0:
+        user_attempts_count = AssessmentAttempt.objects.filter(
+            user=request.user,
+            assessment=assessment,
+            link=link,
+            status__in=[AssessmentAttempt.Status.SUBMITTED, AssessmentAttempt.Status.GRADED]
+        ).count()
+        if user_attempts_count >= link.max_attempts_per_user:
+            return render(request, 'exam/link_limit_reached.html', {
+                'link': link,
+                'assessment': assessment,
+                'max_attempts': link.max_attempts_per_user,
+            })
+
+    form_errors = []
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        employee_id = request.POST.get('employee_id', '').strip()
+        department = request.POST.get('department', '').strip()
+        access_code = request.POST.get('access_code', '').strip()
+
+        # If user is logged in, fallback to user properties
+        if request.user.is_authenticated:
+            if not name:
+                name = request.user.get_full_name() or request.user.username
+            if not email:
+                email = request.user.email
+            if not employee_id:
+                employee_id = request.user.employee_id or ''
+            if not department:
+                department = request.user.department.name if request.user.department else ''
+
+        # Validation rules
+        if link.collect_name and not name:
+            form_errors.append("Please enter your Full Name.")
+
+        if link.collect_email:
+            if not email:
+                form_errors.append("Please enter your Email address.")
+            elif link.allowed_email_domains:
+                allowed_domains = [d.strip().lower() for d in link.allowed_email_domains.split(',') if d.strip()]
+                match_found = any(email.endswith(d) or f"@{email.split('@')[-1]}" == d for d in allowed_domains)
+                if not match_found:
+                    form_errors.append(f"Email domain not allowed. Permitted: {link.allowed_email_domains}")
+
+        if link.require_employee_id and not employee_id:
+            form_errors.append("Employee ID / Candidate ID is required.")
+
+        if link.access_code and access_code != link.access_code:
+            form_errors.append("Invalid Access PIN / Password.")
+
+        # Attempt limit check for guest email
+        if not request.user.is_authenticated and link.max_attempts_per_user > 0 and email:
+            prior_guest_attempts = AssessmentAttempt.objects.filter(
+                assessment=assessment,
+                link=link,
+                participant_email__iexact=email,
+                status__in=[AssessmentAttempt.Status.SUBMITTED, AssessmentAttempt.Status.GRADED]
+            ).count()
+            if prior_guest_attempts >= link.max_attempts_per_user:
+                form_errors.append(f"Maximum attempts ({link.max_attempts_per_user}) reached for {email}.")
+
+        if not form_errors:
+            # Provision or retrieve candidate user
+            if request.user.is_authenticated:
+                candidate_user = request.user
+            else:
+                candidate_user = User.objects.filter(email__iexact=email).first()
+                if not candidate_user:
+                    username_base = slugify(name)[:20] if name else "candidate"
+                    username = f"{username_base}_{uuid.uuid4().hex[:6]}"
+                    candidate_user = User.objects.create(
+                        username=username,
+                        email=email,
+                        first_name=name.split(' ')[0] if name else 'Candidate',
+                        last_name=' '.join(name.split(' ')[1:]) if (name and ' ' in name) else '',
+                        role=Role.EMPLOYEE,
+                        employee_id=employee_id,
+                    )
+                    candidate_user.set_unusable_password()
+                    candidate_user.save()
+
+                candidate_user.backend = 'django.contrib.auth.backends.ModelBackend'
+                login(request, candidate_user)
+
+            # Determine attempt count
+            attempt_count = AssessmentAttempt.objects.filter(
+                user=candidate_user,
+                assessment=assessment,
+                link=link,
+                status__in=[AssessmentAttempt.Status.SUBMITTED, AssessmentAttempt.Status.GRADED]
+            ).count()
+
+            attempt = initialize_attempt(
+                assessment=assessment,
+                user=candidate_user,
+                link=link,
+                participant_info={
+                    'name': name,
+                    'email': email,
+                    'employee_id': employee_id,
+                    'department': department,
+                },
+                ip_address=getattr(request, 'client_ip', None),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                attempt_number=attempt_count + 1
+            )
+
+            return redirect('exam:take_assessment', attempt_id=attempt.id)
+
+    return render(request, 'exam/link_landing.html', {
+        'link': link,
+        'assessment': assessment,
+        'form_errors': form_errors,
+        'current_name': request.POST.get('name', request.user.get_full_name() if request.user.is_authenticated else ''),
+        'current_email': request.POST.get('email', request.user.email if request.user.is_authenticated else ''),
+        'current_emp_id': request.POST.get('employee_id', request.user.employee_id if (request.user.is_authenticated and request.user.employee_id) else ''),
+        'current_dept': request.POST.get('department', request.user.department.name if (request.user.is_authenticated and request.user.department) else ''),
     })
 
 

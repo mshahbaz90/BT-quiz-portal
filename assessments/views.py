@@ -8,10 +8,10 @@ from django.db import models
 from django.core.paginator import Paginator
 
 from assessments.models import (
-    Assessment, Question, QuestionOption, AssessmentQuestion,
+    Assessment, AssessmentLink, Question, QuestionOption, AssessmentQuestion,
     Category, QuestionType, Difficulty
 )
-from assessments.forms import AssessmentForm, QuestionForm, CategoryForm
+from assessments.forms import AssessmentForm, QuestionForm, CategoryForm, AssessmentLinkForm
 from core.models import AuditLog
 
 
@@ -117,9 +117,13 @@ def assessment_detail_view(request, assessment_id):
     attached_ids = assessment.assessment_questions.values_list('question_id', flat=True)
     available_bank_questions = Question.objects.exclude(id__in=attached_ids)[:30]
 
+    # Assessment Links created for this assessment
+    links = assessment.links.prefetch_related('link_attempts').all()
+
     return render(request, 'assessments/assessment_detail.html', {
         'assessment': assessment,
         'available_bank_questions': available_bank_questions,
+        'links': links,
     })
 
 
@@ -628,3 +632,158 @@ def question_import_csv_view(request):
         return redirect('assessments:question_bank')
 
     return redirect('assessments:question_bank')
+
+
+# -------------------------------------------------------------
+# Assessment Links (ClassMarker-Style Direct Test Delivery Links)
+# -------------------------------------------------------------
+
+@login_required
+def assessment_link_list_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    query = request.GET.get('q', '').strip()
+    assessment_id = request.GET.get('assessment_id', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
+    links = AssessmentLink.objects.select_related('assessment', 'created_by').prefetch_related('link_attempts').all()
+
+    if query:
+        links = links.filter(
+            models.Q(name__icontains=query) | models.Q(link_code__icontains=query) | models.Q(assessment__title__icontains=query)
+        )
+    if assessment_id:
+        links = links.filter(assessment_id=assessment_id)
+    if status_filter == 'active':
+        links = links.filter(is_active=True)
+    elif status_filter == 'inactive':
+        links = links.filter(is_active=False)
+
+    paginator = Paginator(links, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    assessments = Assessment.objects.filter(is_archived=False).order_by('title')
+
+    return render(request, 'assessments/link_list.html', {
+        'page_obj': page_obj,
+        'assessments': assessments,
+        'query': query,
+        'selected_assessment': assessment_id,
+        'status_filter': status_filter,
+    })
+
+
+@login_required
+def assessment_link_create_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    initial = {}
+    selected_assessment_id = request.GET.get('assessment')
+    if selected_assessment_id:
+        initial['assessment'] = selected_assessment_id
+
+    form = AssessmentLinkForm(request.POST or None, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        link = form.save(commit=False)
+        link.created_by = request.user
+        link.save()
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='ASSESSMENT_LINK_CREATED',
+            target_model='AssessmentLink',
+            target_id=str(link.id),
+            details={'link_code': link.link_code, 'name': link.name, 'assessment': link.assessment.code}
+        )
+        messages.success(request, f"Assessment link '{link.name}' successfully created!")
+        return redirect('assessments:link_detail', link_id=link.id)
+
+    return render(request, 'assessments/link_form.html', {
+        'form': form,
+        'title': 'Generate Assessment Link (ClassMarker Style)',
+        'button_text': 'Generate Direct Link',
+    })
+
+
+@login_required
+def assessment_link_detail_view(request, link_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    link = get_object_or_404(
+        AssessmentLink.objects.select_related('assessment', 'created_by'),
+        id=link_id
+    )
+
+    attempts = link.link_attempts.select_related('user').order_by('-started_at')
+    total_attempts = attempts.count()
+    completed_attempts = attempts.filter(status__in=['SUBMITTED', 'GRADED'])
+    passed_attempts = completed_attempts.filter(is_passed=True).count()
+    failed_attempts = completed_attempts.filter(is_passed=False).count()
+    
+    avg_score = None
+    if completed_attempts.exists():
+        avg_score = round(completed_attempts.aggregate(models.Avg('percentage'))['percentage__avg'] or 0, 1)
+
+    return render(request, 'assessments/link_detail.html', {
+        'link': link,
+        'attempts': attempts[:50],
+        'total_attempts': total_attempts,
+        'completed_count': completed_attempts.count(),
+        'passed_count': passed_attempts,
+        'failed_count': failed_attempts,
+        'avg_score': avg_score,
+    })
+
+
+@login_required
+def assessment_link_edit_view(request, link_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    link = get_object_or_404(AssessmentLink, id=link_id)
+    form = AssessmentLinkForm(request.POST or None, instance=link)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f"Assessment link '{link.name}' updated successfully.")
+        return redirect('assessments:link_detail', link_id=link.id)
+
+    return render(request, 'assessments/link_form.html', {
+        'form': form,
+        'title': f'Edit Link: {link.name}',
+        'link': link,
+        'button_text': 'Save Link Settings',
+    })
+
+
+@login_required
+def assessment_link_toggle_view(request, link_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    link = get_object_or_404(AssessmentLink, id=link_id)
+    if request.method == 'POST':
+        link.is_active = not link.is_active
+        link.save(update_fields=['is_active'])
+        status_str = "Activated" if link.is_active else "Paused"
+        messages.success(request, f"Assessment link '{link.name}' is now {status_str}.")
+
+    return redirect('assessments:link_detail', link_id=link.id)
+
+
+@login_required
+def assessment_link_delete_view(request, link_id):
+    if not (request.user.is_assessment_admin or request.user.is_super_admin):
+        return HttpResponseForbidden("Only Administrators can delete assessment links.")
+
+    link = get_object_or_404(AssessmentLink, id=link_id)
+    if request.method == 'POST':
+        name = link.name
+        link.delete()
+        messages.success(request, f"Assessment link '{name}' has been deleted.")
+        return redirect('assessments:link_list')
+
+    return render(request, 'assessments/link_confirm_delete.html', {'link': link})

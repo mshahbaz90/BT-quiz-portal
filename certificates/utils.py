@@ -98,12 +98,13 @@ def generate_certificate_pdf(certificate: Certificate) -> io.BytesIO:
     elements.append(Paragraph("This is proudly presented to", body_style))
     elements.append(Spacer(1, 10))
 
-    full_name = certificate.user.get_full_name() or certificate.user.username
+    full_name = getattr(certificate.attempt, 'participant_name', '') or certificate.user.get_full_name() or certificate.user.username
     elements.append(Paragraph(full_name.upper(), recipient_style))
     elements.append(Spacer(1, 10))
 
-    if certificate.user.employee_id:
-        elements.append(Paragraph(f"Employee ID: {certificate.user.employee_id}", meta_style))
+    emp_id = getattr(certificate.attempt, 'participant_employee_id', '') or certificate.user.employee_id
+    if emp_id:
+        elements.append(Paragraph(f"Candidate / Employee ID: {emp_id}", meta_style))
         elements.append(Spacer(1, 10))
 
     assessment_title = certificate.assessment.title

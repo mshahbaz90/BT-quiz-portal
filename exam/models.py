@@ -15,6 +15,12 @@ class AssessmentAttempt(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='assessment_attempts')
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='attempts')
+    link = models.ForeignKey('assessments.AssessmentLink', on_delete=models.SET_NULL, null=True, blank=True, related_name='link_attempts')
+    participant_name = models.CharField(max_length=150, blank=True)
+    participant_email = models.EmailField(blank=True)
+    participant_employee_id = models.CharField(max_length=50, blank=True)
+    participant_department = models.CharField(max_length=120, blank=True)
+
     assessment_version = models.PositiveIntegerField(default=1)
     attempt_number = models.PositiveIntegerField(default=1)
     

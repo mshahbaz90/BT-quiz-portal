@@ -31,4 +31,12 @@ urlpatterns = [
     path('questions/<int:question_id>/duplicate/', views.question_duplicate_view, name='question_duplicate'),
     path('questions/export/csv/', views.question_export_csv_view, name='question_export_csv'),
     path('questions/import/csv/', views.question_import_csv_view, name='question_import_csv'),
+
+    # Assessment Links (ClassMarker Links)
+    path('links/', views.assessment_link_list_view, name='link_list'),
+    path('links/create/', views.assessment_link_create_view, name='link_create'),
+    path('links/<int:link_id>/', views.assessment_link_detail_view, name='link_detail'),
+    path('links/<int:link_id>/edit/', views.assessment_link_edit_view, name='link_edit'),
+    path('links/<int:link_id>/toggle/', views.assessment_link_toggle_view, name='link_toggle'),
+    path('links/<int:link_id>/delete/', views.assessment_link_delete_view, name='link_delete'),
 ]

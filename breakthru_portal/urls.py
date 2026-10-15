@@ -2,8 +2,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from exam import views as exam_views
 
 urlpatterns = [
+    # ClassMarker Direct Assessment Link Gateway
+    path('links/<str:link_code>/', exam_views.public_link_entry_view, name='public_link_entry'),
+
     # Core & Dashboard
     path('', include('core.urls')),
 
