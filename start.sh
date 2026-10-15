@@ -10,5 +10,5 @@ elif [ -f ".venv/bin/activate" ]; then
 fi
 
 python manage.py migrate --noinput
-python scripts/init_admin.py
+python manage.py seed_breakthru_data
 exec gunicorn breakthru_portal.wsgi:application --bind 0.0.0.0:$PORT
