@@ -63,11 +63,13 @@
         <div class="form-group">
           <label class="form-label">Department</label>
           {{ form.department }}
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted);">Assign employee to an active department.</div>
           {% if form.department.errors %}<div class="form-help" style="color: var(--danger);">{{ form.department.errors.0 }}</div>{% endif %}
         </div>
         <div class="form-group">
-          <label class="form-label">Designation / Title</label>
+          <label class="form-label">Designation / Job Title</label>
           {{ form.designation }}
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted);">e.g. Lead Technical Trainer, Frontend Developer, Engineering Manager.</div>
           {% if form.designation.errors %}<div class="form-help" style="color: var(--danger);">{{ form.designation.errors.0 }}</div>{% endif %}
         </div>
       </div>
@@ -78,23 +80,57 @@
         {% if form.phone.errors %}<div class="form-help" style="color: var(--danger);">{{ form.phone.errors.0 }}</div>{% endif %}
       </div>
 
-      <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem;">
-        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Authentication & Onboarding</h3>
-        <div class="form-group">
-          <label class="form-label">{{ form.initial_password.label }}</label>
-          {{ form.initial_password }}
-          <div class="form-help">{{ form.initial_password.help_text }}</div>
+      {% if is_edit %}
+        <!-- Security & Status Management (Edit Mode) -->
+        <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; border-color: var(--border-light);">
+          <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-main);">Security & Account Status</h3>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Reset Password</label>
+            {{ form.reset_password }}
+            <div class="form-help" style="font-size: 0.8rem; color: var(--text-muted);">Leave blank to keep the current password. If entered, user must change it on next login.</div>
+            {% if form.reset_password.errors %}<div class="form-help" style="color: var(--danger);">{{ form.reset_password.errors.0 }}</div>{% endif %}
+          </div>
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            {{ form.is_active }}
+            <span style="font-size: 0.9rem; font-weight: 500;">Active Account (uncheck to suspend account access)</span>
+          </label>
+          {% if form.is_active.errors %}<div class="form-help" style="color: var(--danger);">{{ form.is_active.errors.0 }}</div>{% endif %}
         </div>
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          {{ form.require_password_change }}
-          <span style="font-size: 0.9rem;">{{ form.require_password_change.label }}</span>
-        </label>
-      </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
-        <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">Cancel</a>
-        <button type="submit" class="btn btn-primary btn-lg">Create Employee Account</button>
-      </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <div>
+            {% if target_user != request.user %}
+              <a href="{% url 'accounts:employee_delete' target_user.id %}" class="btn btn-outline btn-sm" style="color: #dc2626; border-color: rgba(220, 38, 38, 0.4);">
+                🗑️ Delete This Employee
+              </a>
+            {% endif %}
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-lg">💾 Save Changes</button>
+          </div>
+        </div>
+      {% else %}
+        <!-- Authentication & Onboarding (Create Mode) -->
+        <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; border-color: var(--border-light);">
+          <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-main);">Authentication & Onboarding</h3>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">{{ form.initial_password.label }}</label>
+            {{ form.initial_password }}
+            <div class="form-help" style="font-size: 0.8rem; color: var(--text-muted);">{{ form.initial_password.help_text }}</div>
+            {% if form.initial_password.errors %}<div class="form-help" style="color: var(--danger);">{{ form.initial_password.errors.0 }}</div>{% endif %}
+          </div>
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            {{ form.require_password_change }}
+            <span style="font-size: 0.9rem;">{{ form.require_password_change.label }}</span>
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+          <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-lg">➕ Create Employee Account</button>
+        </div>
+      {% endif %}
     </form>
   </div>
 </div>

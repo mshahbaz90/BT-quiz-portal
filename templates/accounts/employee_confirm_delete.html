@@ -1,0 +1,68 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Delete Employee: {{ target_user.get_full_name|default:target_user.username }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; <a href="{% url 'accounts:employee_list' %}">Employees</a> &rsaquo; Delete {{ target_user.username }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 620px; margin: 2.5rem auto;">
+  <div class="card" style="padding: 2.5rem; text-align: center; border-color: rgba(239, 68, 68, 0.45); box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.1);">
+    <div style="font-size: 3.25rem; margin-bottom: 1rem; line-height: 1;">⚠️</div>
+    <h1 style="font-size: 1.6rem; color: var(--text-main); margin-bottom: 0.75rem;">Delete Employee Account?</h1>
+    
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
+      Are you sure you want to permanently delete the employee record for 
+      <strong style="color: var(--text-main);">{{ target_user.get_full_name|default:target_user.username }}</strong>?
+      This action is irreversible and will remove their access to the BreakThru portal.
+    </p>
+
+    <!-- Employee Information Summary -->
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: left; font-size: 0.9rem;">
+      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
+        <span style="color: var(--text-muted); font-weight: 500;">Employee ID:</span>
+        <span style="font-weight: 600;">{{ target_user.employee_id|default:"—" }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
+        <span style="color: var(--text-muted); font-weight: 500;">Username / Email:</span>
+        <span>{{ target_user.username }} &bull; {{ target_user.email|default:"No email" }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
+        <span style="color: var(--text-muted); font-weight: 500;">Designation:</span>
+        <span>{{ target_user.designation|default:"Staff" }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
+        <span style="color: var(--text-muted); font-weight: 500;">Department:</span>
+        <span>{{ target_user.department.name|default:"Unassigned" }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem;">
+        <span style="color: var(--text-muted); font-weight: 500;">System Role:</span>
+        <span><span class="badge badge-info">{{ target_user.get_role_display }}</span></span>
+      </div>
+    </div>
+
+    <!-- Impact & Soft-Delete Advice -->
+    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">
+      <div style="font-weight: 600; color: #b45309; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+        <span>💡</span> Tip: Want to revoke access without deleting history?
+      </div>
+      <div>
+        You can <strong style="color: var(--text-main);">Suspend</strong> this employee instead from the employee directory. 
+        Suspending immediately blocks login access while preserving all assessment records ({{ attempts_count }} attempts) and certificates ({{ certificates_count }} issued).
+      </div>
+    </div>
+
+    <!-- Actions Form -->
+    <form method="POST" action="{% url 'accounts:employee_delete' target_user.id %}">
+      {% csrf_token %}
+      <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{% url 'accounts:employee_list' %}" class="btn btn-secondary" style="min-width: 130px;">
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-danger" style="padding: 0.65rem 1.75rem; min-width: 180px;">
+          🗑️ Yes, Delete Employee
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

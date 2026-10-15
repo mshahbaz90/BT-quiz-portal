@@ -129,3 +129,64 @@ class AccountsTestCase(TestCase):
         })
         self.assertEqual(resp_rem.status_code, 302)
         self.assertFalse(self.employee.groups_assigned.filter(id=team.id).exists())
+
+    def test_employee_edit_designation_and_department(self):
+        self.client.login(username='admin', password='Password123!')
+        new_dept = Department.objects.create(name="Product & Design", code="PRD")
+
+        # GET edit page
+        resp_get = self.client.get(reverse('accounts:employee_edit', kwargs={'user_id': self.employee.id}))
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "Edit Employee")
+
+        # POST update designation and department
+        resp_post = self.client.post(reverse('accounts:employee_edit', kwargs={'user_id': self.employee.id}), {
+            'username': self.employee.username,
+            'employee_id': self.employee.employee_id,
+            'first_name': 'UpdatedFirst',
+            'last_name': 'UpdatedLast',
+            'email': 'updated@breakthru.pk',
+            'role': Role.EMPLOYEE,
+            'department': new_dept.id,
+            'designation': 'Senior Backend Architect',
+            'is_active': True,
+        })
+        self.assertEqual(resp_post.status_code, 302)
+        self.assertEqual(resp_post.url, reverse('accounts:employee_list'))
+
+        self.employee.refresh_from_db()
+        self.assertEqual(self.employee.designation, 'Senior Backend Architect')
+        self.assertEqual(self.employee.department, new_dept)
+        self.assertEqual(self.employee.first_name, 'UpdatedFirst')
+
+    def test_employee_delete_lifecycle(self):
+        self.client.login(username='admin', password='Password123!')
+
+        # 1. GET confirmation page
+        resp_get = self.client.get(reverse('accounts:employee_delete', kwargs={'user_id': self.employee.id}))
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "Delete Employee Account?")
+        self.assertContains(resp_get, self.employee.username)
+
+        # 2. POST confirmation deletes employee
+        emp_id = self.employee.id
+        resp_post = self.client.post(reverse('accounts:employee_delete', kwargs={'user_id': emp_id}))
+        self.assertEqual(resp_post.status_code, 302)
+        self.assertEqual(resp_post.url, reverse('accounts:employee_list'))
+        self.assertFalse(User.objects.filter(id=emp_id).exists())
+
+    def test_admin_cannot_delete_self(self):
+        self.client.login(username='admin', password='Password123!')
+        resp = self.client.post(reverse('accounts:employee_delete', kwargs={'user_id': self.admin.id}))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(User.objects.filter(id=self.admin.id).exists())
+
+    def test_employee_list_renders_action_buttons(self):
+        self.client.login(username='admin', password='Password123!')
+        resp = self.client.get(reverse('accounts:employee_list'))
+        self.assertEqual(resp.status_code, 200)
+        # Edit and Delete links should be rendered
+        self.assertContains(resp, reverse('accounts:employee_edit', kwargs={'user_id': self.employee.id}))
+        self.assertContains(resp, reverse('accounts:employee_delete', kwargs={'user_id': self.employee.id}))
+        self.assertContains(resp, "✏️ Edit")
+        self.assertContains(resp, "🗑️ Delete")

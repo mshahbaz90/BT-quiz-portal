@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 
 from accounts.models import User, Department, Team, Role
 from accounts.forms import (
-    LoginForm, ForcePasswordChangeForm, EmployeeCreateForm,
+    LoginForm, ForcePasswordChangeForm, EmployeeCreateForm, EmployeeEditForm,
     BulkEmployeeImportForm, DepartmentForm, TeamForm
 )
 from core.models import AuditLog
@@ -98,8 +98,8 @@ def profile_view(request):
 
 @login_required
 def employee_list_view(request):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     query = request.GET.get('q', '').strip()
     role_filter = request.GET.get('role', '')
@@ -137,8 +137,8 @@ def employee_list_view(request):
 
 @login_required
 def employee_create_view(request):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     form = EmployeeCreateForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -165,17 +165,103 @@ def employee_create_view(request):
         messages.success(request, f"Employee {user.get_full_name() or user.username} created successfully! Temporary password: {init_pass}")
         return redirect('accounts:employee_list')
 
-    return render(request, 'accounts/employee_form.html', {'form': form, 'title': 'Create New Employee'})
+    return render(request, 'accounts/employee_form.html', {'form': form, 'title': 'Create New Employee', 'is_edit': False})
+
+
+@login_required
+def employee_edit_view(request, user_id):
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
+
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user.is_super_admin and not request.user.is_super_admin:
+        messages.error(request, "Only Super Administrators can edit Super Administrator accounts.")
+        return redirect('accounts:employee_list')
+
+    form = EmployeeEditForm(request.POST or None, instance=target_user)
+
+    if request.method == 'POST' and form.is_valid():
+        user = form.save(commit=False)
+        reset_pass = form.cleaned_data.get('reset_password')
+        if reset_pass:
+            user.set_password(reset_pass)
+            user.must_change_password = True
+
+        user.save()
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='EMPLOYEE_UPDATED',
+            target_model='User',
+            target_id=str(user.id),
+            ip_address=getattr(request, 'client_ip', None),
+            details={'username': user.username, 'employee_id': user.employee_id}
+        )
+
+        messages.success(request, f"Employee {user.get_full_name() or user.username} updated successfully!")
+        return redirect('accounts:employee_list')
+
+    return render(request, 'accounts/employee_form.html', {
+        'form': form,
+        'title': f"Edit Employee: {target_user.get_full_name() or target_user.username}",
+        'is_edit': True,
+        'target_user': target_user
+    })
+
+
+@login_required
+def employee_delete_view(request, user_id):
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
+
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user == request.user:
+        messages.error(request, "You cannot delete your own account.")
+        return redirect('accounts:employee_list')
+
+    if target_user.is_super_admin and not request.user.is_super_admin:
+        messages.error(request, "Only Super Administrators can delete Super Administrator accounts.")
+        return redirect('accounts:employee_list')
+
+    if request.method == 'POST':
+        emp_name = target_user.get_full_name() or target_user.username
+        emp_id = target_user.employee_id or ''
+        target_user.delete()
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='EMPLOYEE_DELETED',
+            target_model='User',
+            target_id=str(user_id),
+            ip_address=getattr(request, 'client_ip', None),
+            details={'name': emp_name, 'employee_id': emp_id}
+        )
+
+        messages.success(request, f"Employee account '{emp_name}' was permanently deleted.")
+        return redirect('accounts:employee_list')
+
+    attempts_count = target_user.assessment_attempts.count() if hasattr(target_user, 'assessment_attempts') else 0
+    certificates_count = target_user.certificates.count() if hasattr(target_user, 'certificates') else 0
+
+    return render(request, 'accounts/employee_confirm_delete.html', {
+        'target_user': target_user,
+        'attempts_count': attempts_count,
+        'certificates_count': certificates_count,
+    })
 
 
 @login_required
 def employee_toggle_status_view(request, user_id):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     target_user = get_object_or_404(User, id=user_id)
     if target_user == request.user:
         messages.error(request, "You cannot suspend your own account.")
+        return redirect('accounts:employee_list')
+
+    if target_user.is_super_admin and not request.user.is_super_admin:
+        messages.error(request, "Only Super Administrators can modify Super Administrator accounts.")
         return redirect('accounts:employee_list')
 
     target_user.is_active = not target_user.is_active
@@ -197,8 +283,8 @@ def employee_toggle_status_view(request, user_id):
 
 @login_required
 def bulk_import_employees_view(request):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     form = BulkEmployeeImportForm(request.POST or None, request.FILES or None)
     results = None
@@ -276,8 +362,8 @@ def bulk_import_employees_view(request):
 
 @login_required
 def export_employees_csv_view(request):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="breakthru_employees.csv"'
@@ -303,8 +389,8 @@ def export_employees_csv_view(request):
 
 @login_required
 def department_list_view(request):
-    if not request.user.is_super_admin:
-        return HttpResponseForbidden("Access restricted to Super Administrators.")
+    if not (request.user.is_super_admin or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Administrators.")
 
     departments = Department.objects.prefetch_related('members', 'teams').all()
     form = DepartmentForm(request.POST or None)

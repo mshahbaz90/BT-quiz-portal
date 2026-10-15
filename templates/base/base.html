@@ -72,7 +72,7 @@
         <!-- Organization & Accounts (Admins & Trainers) -->
         {% if user.is_super_admin or user.is_trainer %}
           <div class="nav-category">Administration</div>
-          {% if user.is_super_admin %}
+          {% if user.is_super_admin or user.is_assessment_admin %}
             <a href="{% url 'accounts:employee_list' %}" class="nav-link {% if 'accounts/employees' in request.path %}active{% endif %}" id="nav-employees">
               <span class="nav-icon">👥</span>
               <span>Employees</span>

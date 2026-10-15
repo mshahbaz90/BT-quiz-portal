@@ -12,6 +12,8 @@ urlpatterns = [
     # Employee Management
     path('employees/', views.employee_list_view, name='employee_list'),
     path('employees/create/', views.employee_create_view, name='employee_create'),
+    path('employees/<int:user_id>/edit/', views.employee_edit_view, name='employee_edit'),
+    path('employees/<int:user_id>/delete/', views.employee_delete_view, name='employee_delete'),
     path('employees/<int:user_id>/toggle-status/', views.employee_toggle_status_view, name='employee_toggle_status'),
     path('employees/import/', views.bulk_import_employees_view, name='bulk_import'),
     path('employees/export/', views.export_employees_csv_view, name='export_employees'),

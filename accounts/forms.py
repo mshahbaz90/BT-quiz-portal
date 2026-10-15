@@ -125,7 +125,52 @@ class EmployeeCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['department'].queryset = Department.objects.filter(is_active=True).order_by('name')
-        self.fields['department'].empty_label = "- Select an option -"
+        self.fields['department'].empty_label = "- Select Department -"
+
+    def clean_employee_id(self):
+        val = self.cleaned_data.get('employee_id')
+        if not val or not val.strip():
+            return None
+        return val.strip()
+
+
+class EmployeeEditForm(forms.ModelForm):
+    reset_password = forms.CharField(
+        required=False,
+        label="Reset Password",
+        help_text="Leave blank to keep current password.",
+        widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Enter new password if changing'})
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'username', 'employee_id', 'first_name', 'last_name',
+            'email', 'role', 'department', 'designation', 'phone', 'is_active'
+        ]
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-input'}),
+            'employee_id': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. BT-1042'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'email': forms.EmailInput(attrs={'class': 'form-input'}),
+            'role': forms.Select(attrs={'class': 'form-select'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+            'designation': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Frontend Developer, HR Specialist'}),
+            'phone': forms.TextInput(attrs={'class': 'form-input'}),
+            'is_active': forms.CheckboxInput(attrs={'id': 'is-active-checkbox'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['department'].queryset = Department.objects.filter(is_active=True).order_by('name')
+        self.fields['department'].empty_label = "- Select Department -"
+
+    def clean_employee_id(self):
+        val = self.cleaned_data.get('employee_id')
+        if not val or not val.strip():
+            return None
+        return val.strip()
 
 
 class BulkEmployeeImportForm(forms.Form):
