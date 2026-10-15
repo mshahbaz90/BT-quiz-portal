@@ -67,9 +67,9 @@
       </div>
     </div>
 
-    <div class="bt-brand-footer" style="color:#8C88BB; font-size:.85rem; position:relative; z-index:1;">
+    <div class="bt-brand-footer" style="color: #cbd5e1; font-size: 0.88rem; font-weight: 500; position: relative; z-index: 1;">
       <span>© {{ CURRENT_YEAR|default:'2026' }} BreakThru. Internal use only.</span>
-      <span style="opacity:0.75;">Enterprise Portal</span>
+      <span style="opacity: 0.9;">Enterprise Portal</span>
     </div>
   </div>
 
@@ -166,19 +166,9 @@
         </button>
       </form>
 
-      <!-- Quick Demo Credentials Helper for instant testing -->
-      <div class="bt-demo-creds">
-        <div class="bt-demo-title">Demo Quick Fill</div>
-        <div class="bt-demo-buttons">
-          <button type="button" class="bt-demo-pill" onclick="quickFill('admin', 'BreakThru2026!')">👑 Admin</button>
-          <button type="button" class="bt-demo-pill" onclick="quickFill('trainer.ali', 'BreakThru2026!')">🎓 Trainer</button>
-          <button type="button" class="bt-demo-pill" onclick="quickFill('emp.zara', 'BreakThru2026!')">💼 Employee</button>
-        </div>
-      </div>
-
       <div class="text-center mt-4" style="text-align: center; margin-top: 1.5rem;">
         <button type="button" class="bt-icon-btn" id="themeToggle"
-                style="background:var(--bt-border); color:var(--bt-text); border-color:var(--bt-border);">🌓 Switch theme</button>
+                style="background: var(--bg-surface-elevated); color: var(--text-main); border: 1.5px solid var(--border-light); padding: 0.5rem 1.25rem; border-radius: 9999px; cursor: pointer; font-size: 0.88rem; font-weight: 600;">🌓 Switch theme</button>
       </div>
 
       <div class="bt-auth-notice mt-4" style="margin-top: 1.5rem;">
@@ -196,24 +186,6 @@
     const isPassword = input.getAttribute('type') === 'password';
     input.setAttribute('type', isPassword ? 'text' : 'password');
     btn.textContent = isPassword ? '👁️‍🗨️ Hide' : '👁️ Show';
-  }
-
-  function quickFill(user, pass) {
-    const userField = document.getElementById('login-username');
-    const passField = document.getElementById('login-password');
-    if (userField) {
-      userField.value = user;
-      userField.focus();
-      userField.style.transition = 'box-shadow 0.3s ease';
-      userField.style.boxShadow = '0 0 0 4px rgba(23, 93, 253, 0.4)';
-      setTimeout(() => { userField.style.boxShadow = ''; }, 700);
-    }
-    if (passField) {
-      passField.value = pass;
-      passField.style.transition = 'box-shadow 0.3s ease';
-      passField.style.boxShadow = '0 0 0 4px rgba(108, 59, 247, 0.4)';
-      setTimeout(() => { passField.style.boxShadow = ''; }, 700);
-    }
   }
 </script>
 {% endblock %}

@@ -112,7 +112,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted); font-weight: 600; font-size: 0.95rem;">
                   No assessment attempts recorded yet.
                 </td>
               </tr>
@@ -135,14 +135,14 @@
           <div style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); font-size: 0.85rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span class="badge badge-info" style="font-size: 0.7rem;">{{ a.action }}</span>
-              <span style="color: var(--text-subtle); font-size: 0.75rem;">{{ a.timestamp|timesince }} ago</span>
+              <span style="color: var(--text-subtle); font-size: 0.78rem; font-weight: 600;">{{ a.timestamp|timesince }} ago</span>
             </div>
-            <div style="margin-top: 0.35rem; font-weight: 500;">
+            <div style="margin-top: 0.35rem; font-weight: 600; color: var(--text-main);">
               {{ a.user.username|default:"System" }} &bull; {{ a.target_model }} #{{ a.target_id }}
             </div>
           </div>
         {% empty %}
-          <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1.5rem;">
+          <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-align: center; padding: 1.5rem;">
             No audit logs recorded yet.
           </div>
         {% endfor %}
