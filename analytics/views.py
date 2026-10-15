@@ -169,6 +169,7 @@ def export_attempts_csv_view(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="breakthru_assessment_attempts.csv"'
 
+    writer = csv.writer(response)
     writer.writerow([
         'Attempt ID', 'Candidate Name', 'Employee ID', 'Department',
         'Link Source', 'Assessment Code', 'Assessment Title', 'Version', 'Attempt Number',
