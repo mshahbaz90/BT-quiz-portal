@@ -10,7 +10,7 @@ from exam.models import AssessmentAttempt
 class AnalyticsTestCase(TestCase):
     def setUp(self):
         self.client = Client()
-        self.dept = Department.objects.create(name="Quality Assurance", code="QA")
+        self.dept, _ = Department.objects.get_or_create(code="QA", defaults={'name': "Quality Assurance"})
         self.team = Team.objects.create(name="Automation Team", department=self.dept)
         
         self.trainer = User.objects.create_user(
@@ -55,7 +55,7 @@ class AnalyticsTestCase(TestCase):
         self.client.login(username="qa.trainer", password="Password123!")
         resp = self.client.get(reverse('analytics:reports_overview'))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Quality Assurance")
+        self.assertContains(resp, self.dept.name)
         self.assertContains(resp, "Selenium &amp; PyTest Certification")
 
     def test_results_list_view_and_filters(self):

@@ -8,7 +8,7 @@ from core.models import AuditLog
 class AccountsTestCase(TestCase):
     def setUp(self):
         self.client = Client()
-        self.dept = Department.objects.create(name="Engineering", code="ENG")
+        self.dept, _ = Department.objects.get_or_create(code="ENG", defaults={'name': "Engineering"})
         self.admin = User.objects.create_superuser(
             username="admin",
             email="admin@breakthru.pk",

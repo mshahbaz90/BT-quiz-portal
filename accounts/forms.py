@@ -108,7 +108,7 @@ class EmployeeCreateForm(forms.ModelForm):
         model = User
         fields = [
             'username', 'employee_id', 'first_name', 'last_name',
-            'email', 'role', 'department', 'team', 'groups_assigned', 'designation', 'phone'
+            'email', 'role', 'department', 'designation', 'phone'
         ]
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-input'}),
@@ -118,11 +118,14 @@ class EmployeeCreateForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class': 'form-input'}),
             'role': forms.Select(attrs={'class': 'form-select'}),
             'department': forms.Select(attrs={'class': 'form-select'}),
-            'team': forms.Select(attrs={'class': 'form-select'}),
-            'groups_assigned': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 3}),
             'designation': forms.TextInput(attrs={'class': 'form-input'}),
             'phone': forms.TextInput(attrs={'class': 'form-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['department'].queryset = Department.objects.filter(is_active=True).order_by('name')
+        self.fields['department'].empty_label = "- Select an option -"
 
 
 class BulkEmployeeImportForm(forms.Form):

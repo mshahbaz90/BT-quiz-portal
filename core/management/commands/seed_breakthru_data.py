@@ -11,14 +11,36 @@ class Command(BaseCommand):
         self.stdout.write("Seeding BreakThru initial data...")
 
         # 1. Departments
-        eng, _ = Department.objects.get_or_create(code="ENG", defaults={'name': "Software Engineering", 'description': "Engineering, Architecture & Quality Assurance"})
-        hr, _ = Department.objects.get_or_create(code="HR", defaults={'name': "Human Resources & Operations", 'description': "People Ops & Corporate Governance"})
-        sales, _ = Department.objects.get_or_create(code="SALES", defaults={'name': "Sales & Client Success", 'description': "Business Development & Client Management"})
-        prod, _ = Department.objects.get_or_create(code="PROD", defaults={'name': "Product & Design", 'description': "Product Management & UI/UX Design"})
+        depts_data = [
+            ("ISR", "ISR", "Inside Sales Representative"),
+            ("Chat Specialist", "CHAT", "Chat Specialist Operations"),
+            ("T&D", "TD", "Training & Development"),
+            ("QA", "QA", "Quality Assurance"),
+            ("Teamlead", "TL", "Team Lead & Supervisory"),
+            ("IT", "IT", "Information Technology & Systems"),
+            ("HR", "HR", "Human Resources"),
+        ]
+        created_depts = {}
+        for name, code, desc in depts_data:
+            dept = Department.objects.filter(code=code).first() or Department.objects.filter(name=name).first()
+            if dept:
+                dept.name = name
+                dept.code = code
+                dept.description = desc
+                dept.is_active = True
+                dept.save()
+            else:
+                dept = Department.objects.create(name=name, code=code, description=desc, is_active=True)
+            created_depts[code] = dept
+
+        Department.objects.exclude(code__in=[c for _, c, _ in depts_data]).update(is_active=False)
+
+        it_dept = created_depts["IT"]
+        hr_dept = created_depts["HR"]
 
         # 2. Teams
-        backend_team, _ = Team.objects.get_or_create(name="Backend Engineering", department=eng)
-        frontend_team, _ = Team.objects.get_or_create(name="Frontend & Web Apps", department=eng)
+        backend_team, _ = Team.objects.get_or_create(name="Backend Engineering", department=it_dept)
+        frontend_team, _ = Team.objects.get_or_create(name="Frontend & Web Apps", department=it_dept)
 
         # 3. Users
         # Super Administrator
@@ -33,7 +55,7 @@ class Command(BaseCommand):
                 last_name="Executive",
                 role=Role.SUPER_ADMIN,
                 designation="Chief Technology Officer",
-                department=eng
+                department=it_dept
             )
             self.stdout.write("Created Super Admin: admin / BreakThru2026!")
 
@@ -49,7 +71,7 @@ class Command(BaseCommand):
                 last_name="Raza",
                 role=Role.TRAINER,
                 designation="Lead Technical Trainer",
-                department=hr
+                department=hr_dept
             )
             self.stdout.write("Created Trainer: trainer.ali / BreakThru2026!")
 
@@ -65,7 +87,7 @@ class Command(BaseCommand):
                 last_name="Akhtar",
                 role=Role.TEAM_LEAD,
                 designation="Engineering Team Lead",
-                department=eng,
+                department=it_dept,
                 team=backend_team
             )
             backend_team.lead = lead
@@ -84,7 +106,7 @@ class Command(BaseCommand):
                 last_name="Khan",
                 role=Role.EMPLOYEE,
                 designation="Full Stack Software Engineer",
-                department=eng,
+                department=it_dept,
                 team=backend_team
             )
             self.stdout.write("Created Employee: emp.zara / BreakThru2026!")
@@ -100,7 +122,7 @@ class Command(BaseCommand):
                 last_name="Tariq",
                 role=Role.EMPLOYEE,
                 designation="Frontend Developer",
-                department=eng,
+                department=it_dept,
                 team=frontend_team
             )
             self.stdout.write("Created Employee: emp.bilal / BreakThru2026!")
