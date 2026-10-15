@@ -1,0 +1,113 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Category Management — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Assessments &rsaquo; Categories{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Categories & Domains</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Organize question banks, tests, and domain reporting across the organization.</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="{% url 'assessments:question_bank' %}" class="btn btn-outline">📂 Question Bank</a>
+    <a href="{% url 'assessments:assessment_list' %}" class="btn btn-outline">📋 Assessments</a>
+  </div>
+</div>
+
+<div class="grid-auto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- Create Category Form Card -->
+  <div class="card" style="padding: 1.5rem; align-self: start;">
+    <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--text-main);">➕ Create New Category</h3>
+    <form method="POST">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;">
+        <label class="form-label">Category Name *</label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div style="color: var(--danger); font-size: 0.85rem; margin-top: 0.25rem;">{{ form.name.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label class="form-label">Description (Optional)</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div style="color: var(--danger); font-size: 0.85rem; margin-top: 0.25rem;">{{ form.description.errors }}</div>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Create Category</button>
+    </form>
+  </div>
+
+  <!-- Category Overview / Quick Stats -->
+  <div class="card" style="padding: 1.5rem; align-self: start;">
+    <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--text-main);">📊 Category Distribution</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+      Categories enable domain-level analytics, question categorization, and tailored feedback upon assessment completion.
+    </p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.75rem; font-weight: 700; color: #a78bfa;">{{ categories.count }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Total Categories</div>
+      </div>
+      <div style="background: rgba(23, 93, 253, 0.08); border: 1px solid rgba(23, 93, 253, 0.2); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.75rem; font-weight: 700; color: #60a5fa;">Active</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Status</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Category Table -->
+<div class="card" style="padding: 1.25rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <h3 style="font-size: 1.15rem; color: var(--text-main);">Existing Categories</h3>
+    <span class="badge badge-info">{{ categories.count }} Available</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Category Name</th>
+          <th>Description</th>
+          <th style="text-align: center;">Questions Banked</th>
+          <th style="text-align: center;">Assessments Using</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat in categories %}
+          <tr>
+            <td>
+              <strong style="color: var(--text-main); font-size: 0.95rem;">{{ cat.name }}</strong>
+            </td>
+            <td style="color: var(--text-muted); font-size: 0.88rem; max-width: 300px;">
+              {{ cat.description|default:"—" }}
+            </td>
+            <td style="text-align: center;">
+              <span class="badge badge-primary">{{ cat.questions_count }}</span>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge badge-success">{{ cat.assessments_count }}</span>
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+              <a href="{% url 'assessments:question_bank' %}?category={{ cat.id }}" class="btn btn-sm btn-outline" title="View Questions">View Questions</a>
+              <a href="{% url 'assessments:category_delete' cat.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete category \'{{ cat.name|escapejs }}\'? Associated questions will not be deleted.');" title="Delete Category">Delete</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              No categories created yet. Use the form above to add your first domain category.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

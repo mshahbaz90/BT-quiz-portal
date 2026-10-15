@@ -16,6 +16,8 @@ urlpatterns = [
     path('employees/import/', views.bulk_import_employees_view, name='bulk_import'),
     path('employees/export/', views.export_employees_csv_view, name='export_employees'),
     
-    # Departments
+    # Departments & Teams / Groups
     path('departments/', views.department_list_view, name='department_list'),
+    path('teams/', views.team_list_view, name='team_list'),
+    path('teams/<int:team_id>/', views.team_detail_view, name='team_detail'),
 ]

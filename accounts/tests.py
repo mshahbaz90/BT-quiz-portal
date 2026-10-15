@@ -93,3 +93,39 @@ class AccountsTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(User.objects.filter(username='csv.user1').exists())
         self.assertTrue(User.objects.filter(username='csv.user2').exists())
+
+    def test_team_creation_and_member_assignment(self):
+        self.client.login(username='admin', password='Password123!')
+        
+        # 1. Create Team / Group
+        resp = self.client.post(reverse('accounts:team_list'), {
+            'name': 'Backend Squad Alpha',
+            'department': self.dept.id,
+            'lead': self.admin.id,
+            'is_active': True,
+        })
+        self.assertEqual(resp.status_code, 302)
+        from accounts.models import Team
+        team = Team.objects.get(name='Backend Squad Alpha')
+        self.assertEqual(team.department, self.dept)
+
+        # 2. View Team Details
+        resp_detail = self.client.get(reverse('accounts:team_detail', kwargs={'team_id': team.id}))
+        self.assertEqual(resp_detail.status_code, 200)
+        self.assertContains(resp_detail, 'Backend Squad Alpha')
+
+        # 3. Add employee to group
+        resp_add = self.client.post(reverse('accounts:team_detail', kwargs={'team_id': team.id}), {
+            'action': 'add_member',
+            'user_id': self.employee.id,
+        })
+        self.assertEqual(resp_add.status_code, 302)
+        self.assertTrue(self.employee.groups_assigned.filter(id=team.id).exists())
+
+        # 4. Remove employee from group
+        resp_rem = self.client.post(reverse('accounts:team_detail', kwargs={'team_id': team.id}), {
+            'action': 'remove_member',
+            'user_id': self.employee.id,
+        })
+        self.assertEqual(resp_rem.status_code, 302)
+        self.assertFalse(self.employee.groups_assigned.filter(id=team.id).exists())

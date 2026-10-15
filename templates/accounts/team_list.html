@@ -1,0 +1,107 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Groups & Teams — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; Groups & Teams{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem;">Groups & Cohorts</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Organize 300+ employees into functional teams, project groups, and training cohorts for targeted assessment assignment.</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem;">
+    <a href="{% url 'accounts:department_list' %}" class="btn btn-outline">🏢 Departments</a>
+    <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">👥 Employees</a>
+  </div>
+</div>
+
+<div class="grid-auto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+  <!-- Teams Table -->
+  <div style="grid-column: span 2; min-width: 0;">
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; color: var(--text-main);">Configured Groups & Teams</h3>
+        <span class="badge badge-info">{{ teams.count }} Total</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Group Name</th>
+              <th>Department</th>
+              <th>Supervisor / Lead</th>
+              <th style="text-align: center;">Members</th>
+              <th style="text-align: center;">Assigned Tests</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in teams %}
+              <tr>
+                <td>
+                  <a href="{% url 'accounts:team_detail' t.id %}" style="font-weight: 600; color: #a78bfa;">
+                    {{ t.name }}
+                  </a>
+                </td>
+                <td>{{ t.department.name }}</td>
+                <td>{% if t.lead %}{{ t.lead.get_full_name|default:t.lead.username }}{% else %}Unassigned{% endif %}</td>
+                <td style="text-align: center;">
+                  <span class="badge badge-primary">{{ t.members.count|add:t.assigned_group_members.count }}</span>
+                </td>
+                <td style="text-align: center;">
+                  <span class="badge badge-secondary">{{ t.assigned_assessments.count }}</span>
+                </td>
+                <td style="text-align: right;">
+                  <a href="{% url 'accounts:team_detail' t.id %}" class="btn btn-sm btn-outline">Manage &rarr;</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No groups or teams created yet. Use the form to add one.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Team Form -->
+  <div style="min-width: 0;">
+    <div class="card" style="padding: 1.5rem;">
+      <div class="card-header" style="margin-bottom: 1rem;">
+        <h3 class="card-title" style="font-size: 1.1rem;">➕ Create New Group</h3>
+      </div>
+      <form method="POST">
+        {% csrf_token %}
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Group / Team Name *</label>
+          {{ form.name }}
+          {% if form.name.errors %}<div style="color: var(--danger); font-size: 0.8rem;">{{ form.name.errors }}</div>{% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Department *</label>
+          {{ form.department }}
+          {% if form.department.errors %}<div style="color: var(--danger); font-size: 0.8rem;">{{ form.department.errors }}</div>{% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Group Lead / Supervisor</label>
+          {{ form.lead }}
+          {% if form.lead.errors %}<div style="color: var(--danger); font-size: 0.8rem;">{{ form.lead.errors }}</div>{% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            {{ form.is_active }}
+            <span>Active Group</span>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Group</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

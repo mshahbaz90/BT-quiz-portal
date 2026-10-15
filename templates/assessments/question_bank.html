@@ -8,12 +8,17 @@
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
   <div>
     <h1 style="font-size: 1.6rem;">Central Question Bank</h1>
-    <p style="color: var(--text-muted); font-size: 0.9rem;">Reusable question pool supporting 12 question types, difficulty categorization, and automated grading keys.</p>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Reusable question repository supporting 12 question types, difficulty categorization, CSV bulk import/export, and question duplication.</p>
   </div>
-  <a href="{% url 'assessments:question_create' %}" class="btn btn-primary">➕ Add Question</a>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <button type="button" class="btn btn-outline" onclick="document.getElementById('importCsvModal').style.display='flex'">📥 Import CSV</button>
+    <a href="{% url 'assessments:question_export_csv' %}" class="btn btn-outline">📤 Export CSV</a>
+    <a href="{% url 'assessments:category_list' %}" class="btn btn-outline">🏷️ Categories</a>
+    <a href="{% url 'assessments:question_create' %}" class="btn btn-primary">➕ Add Question</a>
+  </div>
 </div>
 
-<!-- Filters -->
+<!-- Search & Filters -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
   <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
     <div style="flex: 2; min-width: 220px;">
@@ -54,8 +59,9 @@
         <th>Question Text</th>
         <th>Category</th>
         <th>Difficulty</th>
-        <th>Default Marks</th>
+        <th>Marks</th>
         <th>Options / Keys</th>
+        <th style="text-align: right;">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -63,7 +69,7 @@
         <tr>
           <td><span class="badge badge-info">{{ q.get_question_type_display }}</span></td>
           <td>
-            <div style="font-weight: 600; line-height: 1.35;">{{ q.question_text|truncatechars:100 }}</div>
+            <div style="font-weight: 600; line-height: 1.35; color: var(--text-main);">{{ q.question_text|truncatechars:100 }}</div>
             {% if q.tags %}
               <div style="margin-top: 0.25rem;">
                 <span style="font-size: 0.72rem; color: var(--text-subtle);">Tags: {{ q.tags }}</span>
@@ -88,15 +94,20 @@
               <span style="font-size: 0.8rem; font-family: var(--font-mono);">{{ q.numeric_answer }} (±{{ q.numeric_tolerance }})</span>
             {% elif q.short_answer_accepted %}
               <span style="font-size: 0.8rem; color: var(--text-muted);">{{ q.short_answer_accepted|truncatechars:20 }}</span>
+            {% elif q.question_type == 'SURVEY' %}
+              <span style="font-size: 0.8rem; color: var(--brand-cyan);">Survey (No Score)</span>
             {% else %}
               <span style="font-size: 0.8rem; color: var(--text-subtle);">Manual Grading</span>
             {% endif %}
           </td>
+          <td style="text-align: right; white-space: nowrap;">
+            <a href="{% url 'assessments:question_duplicate' q.id %}" class="btn btn-sm btn-outline" title="Clone this question">📋 Duplicate</a>
+          </td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-            No questions found in question bank. Click "+ Add Question" to create one.
+          <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            No questions found in question bank. Click "+ Add Question" or "Import CSV" to populate.
           </td>
         </tr>
       {% endfor %}
@@ -105,7 +116,7 @@
 </div>
 
 {% if page_obj.has_other_pages %}
-  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap;">
     {% if page_obj.has_previous %}
       <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&type={{ type_filter }}&diff={{ diff_filter }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
     {% endif %}
@@ -117,4 +128,35 @@
     {% endif %}
   </div>
 {% endif %}
+
+<!-- CSV Import Modal -->
+<div id="importCsvModal" style="display: none; position: fixed; inset: 0; background: rgba(5, 2, 18, 0.85); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="card" style="max-width: 540px; width: 100%; padding: 2rem; border-color: rgba(124, 58, 237, 0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="font-size: 1.25rem; color: var(--text-main);">📥 Bulk Import Questions (CSV)</h3>
+      <button type="button" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;" onclick="document.getElementById('importCsvModal').style.display='none'">&times;</button>
+    </div>
+    
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1.25rem; line-height: 1.5;">
+      Upload a standard CSV file with question details. Format headers: <code>Type</code>, <code>Question Text</code>, <code>Category</code>, <code>Difficulty</code>, <code>Default Marks</code>, <code>Hint</code>, <code>Explanation</code>, <code>Tags</code>, <code>Options_Pipe_Separated</code>.
+    </p>
+
+    <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #c4b5fd;">
+      💡 Tip: Use <code>[correct=True]</code> to mark correct options in the pipe-separated string (e.g. <code>Option A [correct=True] | Option B | Option C</code>).
+    </div>
+
+    <form method="POST" action="{% url 'assessments:question_import_csv' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 1.5rem;">
+        <label class="form-label">Select CSV File</label>
+        <input type="file" name="csv_file" accept=".csv" required class="form-input" style="padding: 0.6rem;">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('importCsvModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Upload & Import</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}

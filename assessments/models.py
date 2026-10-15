@@ -14,6 +14,7 @@ class QuestionType(models.TextChoices):
     MATCHING = 'MATCHING', 'Matching Pairs'
     ORDERING = 'ORDERING', 'Ordering / Sequencing'
     NUMERIC = 'NUMERIC', 'Numeric with Tolerance'
+    SURVEY = 'SURVEY', 'Survey (Ungraded Feedback)'
     RICH_CONTENT = 'RICH_CONTENT', 'Formatted Text / Media / Case Study'
     EXPLANATION_HINT = 'EXPLANATION_HINT', 'Question with Hint & Explanation'
 
@@ -81,6 +82,18 @@ class Assessment(models.Model):
     end_date = models.DateTimeField(null=True, blank=True)
     
     random_pool_count = models.PositiveIntegerField(default=0, help_text="Draw N random questions from attached pool. 0 uses all attached questions.")
+    
+    # ClassMarker-style Advanced Assessment Settings
+    questions_per_page = models.PositiveIntegerField(default=1, blank=True, help_text="1 for one-question-at-a-time, 0 for all on one page")
+    allow_save_and_resume = models.BooleanField(default=True, blank=True, help_text="Allow candidate to save answers and resume within duration")
+    pass_message = models.TextField(blank=True, default="Congratulations! You have successfully passed the assessment.")
+    fail_message = models.TextField(blank=True, default="Unfortunately, you did not meet the passing score for this assessment. Please review the material and try again if permitted.")
+    access_code = models.CharField(max_length=50, blank=True, help_text="Optional password / PIN required to start this assessment")
+    retake_cooldown_hours = models.PositiveIntegerField(default=0, blank=True, help_text="Minimum hours to wait between attempts")
+    certificate_enabled = models.BooleanField(default=True, blank=True, help_text="Issue certificate upon passing")
+    show_result_score = models.BooleanField(default=True, blank=True, help_text="Show score and percentage on submission")
+    show_result_answers = models.BooleanField(default=True, blank=True, help_text="Show question-by-question breakdown and correct answers when released")
+    is_archived = models.BooleanField(default=False, blank=True, db_index=True)
     
     # Eligibility scope (assigned departments or teams)
     assigned_departments = models.ManyToManyField('accounts.Department', blank=True, related_name='assigned_assessments')

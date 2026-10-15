@@ -108,7 +108,7 @@ class EmployeeCreateForm(forms.ModelForm):
         model = User
         fields = [
             'username', 'employee_id', 'first_name', 'last_name',
-            'email', 'role', 'department', 'team', 'designation', 'phone'
+            'email', 'role', 'department', 'team', 'groups_assigned', 'designation', 'phone'
         ]
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-input'}),
@@ -119,6 +119,7 @@ class EmployeeCreateForm(forms.ModelForm):
             'role': forms.Select(attrs={'class': 'form-select'}),
             'department': forms.Select(attrs={'class': 'form-select'}),
             'team': forms.Select(attrs={'class': 'form-select'}),
+            'groups_assigned': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 3}),
             'designation': forms.TextInput(attrs={'class': 'form-input'}),
             'phone': forms.TextInput(attrs={'class': 'form-input'}),
         }

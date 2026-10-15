@@ -5,10 +5,13 @@
 {% block breadcrumb %}Assessments &rsaquo; {{ title }}{% endblock %}
 
 {% block content %}
-<div style="max-width: 900px; margin: 0 auto;">
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">{{ title }}</h2>
+<div style="max-width: 960px; margin: 0 auto;">
+  <div class="card" style="padding: 1.75rem;">
+    <div class="card-header" style="margin-bottom: 1.5rem;">
+      <div>
+        <h2 class="card-title">{{ title }}</h2>
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">Configure test parameters, access controls, timing, and ClassMarker-style grading workflows.</p>
+      </div>
       <a href="{% url 'assessments:assessment_list' %}" class="btn btn-outline btn-sm">&larr; Back to Directory</a>
     </div>
 
@@ -16,116 +19,204 @@
       {% csrf_token %}
 
       {% if form.non_field_errors %}
-        <div class="alert alert-danger">
+        <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
           {% for error in form.non_field_errors %}
             <div>{{ error }}</div>
           {% endfor %}
         </div>
       {% endif %}
 
-      <!-- Basic Info -->
-      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
-        <div class="form-group">
-          <label class="form-label">Assessment Title *</label>
-          {{ form.title }}
-          {% if form.title.errors %}<div class="form-help" style="color: var(--danger);">{{ form.title.errors.0 }}</div>{% endif %}
+      <!-- Section 1: Basic Information -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
+          1. Basic Details
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Assessment Title *</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="form-help" style="color: var(--danger);">{{ form.title.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assessment Code *</label>
+            {{ form.code }}
+            <div class="form-help">{{ form.code.help_text }}</div>
+            {% if form.code.errors %}<div class="form-help" style="color: var(--danger);">{{ form.code.errors.0 }}</div>{% endif %}
+          </div>
         </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            {{ form.category }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            {{ form.status }}
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Short Description</label>
+          {{ form.description }}
+        </div>
+
         <div class="form-group">
-          <label class="form-label">Assessment Code *</label>
-          {{ form.code }}
-          <div class="form-help">{{ form.code.help_text }}</div>
-          {% if form.code.errors %}<div class="form-help" style="color: var(--danger);">{{ form.code.errors.0 }}</div>{% endif %}
+          <label class="form-label">Candidate Instructions (Shown before test starts)</label>
+          {{ form.instructions }}
         </div>
       </div>
 
-      <div class="grid grid-cols-2" style="margin-bottom: 1.25rem;">
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          {{ form.category }}
-        </div>
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          {{ form.status }}
-        </div>
-      </div>
+      <!-- Section 2: Timing, Pagination & Access Controls -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
+          2. Timing, Pagination & Access Controls
+        </h3>
 
-      <!-- Test Rules & Configuration -->
-      <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem;">
-        <h3 style="font-size: 1rem; margin-bottom: 1rem;">Timing, Scoring & Execution Rules</h3>
-
-        <div class="grid grid-cols-3" style="margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
           <div class="form-group">
             <label class="form-label">Duration (Minutes)</label>
             {{ form.duration_minutes }}
+            <span class="form-help">0 for unlimited time</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Pass Mark (%)</label>
-            {{ form.pass_mark_percentage }}
+            <label class="form-label">Questions Per Page</label>
+            {{ form.questions_per_page }}
+            <span class="form-help">1 = 1-at-a-time, 0 = all-in-one</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Max Attempts Allowed</label>
+            <label class="form-label">Max Attempts</label>
             {{ form.max_attempts }}
+            <span class="form-help">0 for unlimited retakes</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cooldown (Hours)</label>
+            {{ form.retake_cooldown_hours }}
+            <span class="form-help">Wait time between attempts</span>
           </div>
         </div>
 
-        <div class="grid grid-cols-3" style="margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
           <div class="form-group">
-            <label class="form-label">Results Release Mode</label>
-            {{ form.release_results_mode }}
+            <label class="form-label">Access Code / PIN (Optional)</label>
+            {{ form.access_code }}
+            <span class="form-help">Restrict test access with a private passcode</span>
+          </div>
+          <div style="display: flex; align-items: center; padding-top: 1.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+              {{ form.allow_save_and_resume }}
+              <span>Allow candidate to save & resume attempt</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Scoring, Shuffling & Question Rules -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
+          3. Scoring, Shuffling & Question Rules
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Pass Mark (%)</label>
+            {{ form.pass_mark_percentage }}
           </div>
           <div class="form-group">
             <label class="form-label">Negative Mark Penalty</label>
             {{ form.negative_mark_penalty }}
           </div>
           <div class="form-group">
-            <label class="form-label">Random Pool Count (0 = All)</label>
+            <label class="form-label">Random Pool Count</label>
             {{ form.random_pool_count }}
+            <span class="form-help">0 uses all attached questions</span>
           </div>
         </div>
 
-        <div class="grid grid-cols-2" style="gap: 1rem; margin-top: 0.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem; background: var(--bg-surface); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light);">
           <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
             {{ form.shuffle_questions }}
-            <span>Shuffle questions order for each candidate</span>
+            <span>Shuffle question order for each candidate</span>
           </label>
           <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
             {{ form.shuffle_options }}
-            <span>Shuffle answer options</span>
+            <span>Shuffle answer options for multiple-choice</span>
           </label>
           <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
             {{ form.allow_backtracking }}
-            <span>Allow returning to previous questions</span>
+            <span>Allow candidate to return to previous questions</span>
           </label>
           <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
             {{ form.negative_marking }}
-            <span>Enable negative marking for incorrect answers</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
-            {{ form.show_explanations_to_user }}
-            <span>Show explanations when results are released</span>
+            <span>Apply negative marking penalty for wrong answers</span>
           </label>
         </div>
       </div>
 
-      <!-- Eligibility Departments -->
-      <div class="form-group">
-        <label class="form-label">Assigned Departments (Optional - leave empty for all)</label>
-        {{ form.assigned_departments }}
-        <div class="form-help">Hold Ctrl / Cmd to select multiple target departments.</div>
+      <!-- Section 4: Results Release, Feedback & Certificates -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
+          4. Results Visibility, Feedback & Certificates
+        </h3>
+
+        <div style="margin-bottom: 1rem;">
+          <label class="form-label">Results Release Policy</label>
+          {{ form.release_results_mode }}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; background: var(--bg-surface); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            {{ form.show_result_score }}
+            <span>Show final score / percentage to candidate</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            {{ form.show_result_answers }}
+            <span>Show correct answers when results released</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            {{ form.show_explanations_to_user }}
+            <span>Show question explanations & hints</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            {{ form.certificate_enabled }}
+            <span>Award BreakThru PDF Certificate upon passing</span>
+          </label>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Custom Pass Message (Optional)</label>
+            {{ form.pass_message }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Custom Fail Message (Optional)</label>
+            {{ form.fail_message }}
+          </div>
+        </div>
       </div>
 
-      <!-- Instructions & Descriptions -->
-      <div class="form-group">
-        <label class="form-label">Short Description</label>
-        {{ form.description }}
+      <!-- Section 5: Target Departments & Groups -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
+          5. Audience & Cohort Assignment
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Assigned Departments</label>
+            {{ form.assigned_departments }}
+            <div class="form-help">Leave empty to allow all company departments. Hold Ctrl / Cmd to multi-select.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned Groups / Teams</label>
+            {{ form.assigned_teams }}
+            <div class="form-help">Leave empty to allow all groups. Hold Ctrl / Cmd to multi-select.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Candidate Instructions (Shown before test starts)</label>
-        {{ form.instructions }}
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
         <a href="{% url 'assessments:assessment_list' %}" class="btn btn-outline">Cancel</a>
         <button type="submit" class="btn btn-primary btn-lg">Save Assessment</button>
       </div>

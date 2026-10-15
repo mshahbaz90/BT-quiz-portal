@@ -292,16 +292,27 @@ def submit_assessment_view(request, attempt_id):
 @login_required
 def attempt_result_view(request, attempt_id):
     attempt = get_object_or_404(
-        AssessmentAttempt.objects.select_related('assessment', 'user').prefetch_related('snapshots__response'),
-        id=attempt_id,
-        user=request.user
+        AssessmentAttempt.objects.select_related('assessment', 'user', 'user__department').prefetch_related('snapshots__response'),
+        id=attempt_id
     )
 
+    is_staff = request.user.is_trainer or request.user.is_assessment_admin or request.user.is_team_lead or request.user.is_super_admin
+    if attempt.user != request.user and not is_staff:
+        return HttpResponseForbidden("You do not have permission to view this result.")
+
     certificate = getattr(attempt, 'certificate', None)
+    
+    can_view_breakdown = is_staff or (
+        attempt.assessment.show_result_answers and (
+            attempt.assessment.release_results_mode == Assessment.ResultRelease.IMMEDIATE or
+            (attempt.assessment.release_results_mode == Assessment.ResultRelease.AFTER_GRADING and attempt.status == AssessmentAttempt.Status.GRADED)
+        )
+    )
 
     return render(request, 'exam/result.html', {
         'attempt': attempt,
         'assessment': attempt.assessment,
         'certificate': certificate,
-        'can_view_breakdown': attempt.assessment.release_results_mode == Assessment.ResultRelease.IMMEDIATE,
+        'can_view_breakdown': can_view_breakdown,
+        'is_staff_view': is_staff and (attempt.user != request.user),
     })

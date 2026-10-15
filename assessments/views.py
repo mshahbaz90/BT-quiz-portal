@@ -1,7 +1,9 @@
+import csv
+import io
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponseForbidden, HttpResponseBadRequest
+from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpResponse
 from django.db import models
 from django.core.paginator import Paginator
 
@@ -9,7 +11,7 @@ from assessments.models import (
     Assessment, Question, QuestionOption, AssessmentQuestion,
     Category, QuestionType, Difficulty
 )
-from assessments.forms import AssessmentForm, QuestionForm
+from assessments.forms import AssessmentForm, QuestionForm, CategoryForm
 from core.models import AuditLog
 
 
@@ -301,5 +303,328 @@ def employee_assessment_list_view(request):
     """
     Employee / Candidate view of all accessible assessments, including history.
     """
-    assessments = Assessment.objects.filter(status=Assessment.Status.PUBLISHED).prefetch_related('attempts')
+    user = request.user
+    assessments = Assessment.objects.filter(
+        status=Assessment.Status.PUBLISHED,
+        is_archived=False
+    ).prefetch_related('attempts')
+    
+    # Filter by user's department or team eligibility if not superadmin
+    if not (user.is_super_admin or user.is_trainer):
+        assessments = assessments.filter(
+            models.Q(assigned_departments__isnull=True, assigned_teams__isnull=True) |
+            models.Q(assigned_departments=user.department) |
+            models.Q(assigned_teams=user.team) |
+            models.Q(assigned_teams__in=user.groups_assigned.all())
+        ).distinct()
+
     return render(request, 'assessments/employee_list.html', {'assessments': assessments})
+
+
+# ==============================================================================
+# Categories Management
+# ==============================================================================
+
+@login_required
+def category_list_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    form = CategoryForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        cat = form.save()
+        AuditLog.objects.create(
+            user=request.user,
+            action='CATEGORY_CREATED',
+            target_model='Category',
+            target_id=str(cat.id),
+            details={'name': cat.name}
+        )
+        messages.success(request, f"Category '{cat.name}' created successfully!")
+        return redirect('assessments:category_list')
+
+    categories = Category.objects.annotate(
+        questions_count=models.Count('questions', distinct=True),
+        assessments_count=models.Count('assessments', distinct=True)
+    ).all()
+
+    return render(request, 'assessments/category_list.html', {
+        'categories': categories,
+        'form': form
+    })
+
+
+@login_required
+def category_delete_view(request, category_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    category = get_object_or_404(Category, id=category_id)
+    name = category.name
+    category.delete()
+
+    AuditLog.objects.create(
+        user=request.user,
+        action='CATEGORY_DELETED',
+        target_model='Category',
+        target_id=str(category_id),
+        details={'name': name}
+    )
+    messages.info(request, f"Category '{name}' deleted.")
+    return redirect('assessments:category_list')
+
+
+# ==============================================================================
+# Assessment Lifecycle: Duplicate & Archive
+# ==============================================================================
+
+@login_required
+def assessment_duplicate_view(request, assessment_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    original = get_object_or_404(Assessment, id=assessment_id)
+    
+    # Create clone
+    import uuid
+    short_uid = str(uuid.uuid4())[:4].upper()
+    new_code = f"{original.code}-COPY-{short_uid}"[:40]
+    new_title = f"{original.title} (Copy)"[:200]
+    
+    clone = Assessment.objects.create(
+        title=new_title,
+        code=new_code,
+        description=original.description,
+        instructions=original.instructions,
+        category=original.category,
+        status=Assessment.Status.DRAFT,
+        version=1,
+        duration_minutes=original.duration_minutes,
+        pass_mark_percentage=original.pass_mark_percentage,
+        max_attempts=original.max_attempts,
+        retake_cooldown_hours=original.retake_cooldown_hours,
+        questions_per_page=original.questions_per_page,
+        allow_save_and_resume=original.allow_save_and_resume,
+        pass_message=original.pass_message,
+        fail_message=original.fail_message,
+        access_code=original.access_code,
+        shuffle_questions=original.shuffle_questions,
+        shuffle_options=original.shuffle_options,
+        allow_backtracking=original.allow_backtracking,
+        negative_marking=original.negative_marking,
+        negative_mark_penalty=original.negative_mark_penalty,
+        release_results_mode=original.release_results_mode,
+        show_result_score=original.show_result_score,
+        show_result_answers=original.show_result_answers,
+        show_explanations_to_user=original.show_explanations_to_user,
+        certificate_enabled=original.certificate_enabled,
+        random_pool_count=original.random_pool_count,
+        created_by=request.user
+    )
+    clone.assigned_departments.set(original.assigned_departments.all())
+    clone.assigned_teams.set(original.assigned_teams.all())
+
+    # Clone attached questions
+    for aq in original.assessment_questions.all():
+        AssessmentQuestion.objects.create(
+            assessment=clone,
+            question=aq.question,
+            order=aq.order,
+            marks_override=aq.marks_override
+        )
+
+    AuditLog.objects.create(
+        user=request.user,
+        action='ASSESSMENT_DUPLICATED',
+        target_model='Assessment',
+        target_id=str(clone.id),
+        details={'original_id': original.id, 'new_code': clone.code}
+    )
+    messages.success(request, f"Assessment duplicated as '{clone.title}' ({clone.code}) in Draft status.")
+    return redirect('assessments:assessment_detail', assessment_id=clone.id)
+
+
+@login_required
+def assessment_archive_view(request, assessment_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    assessment.is_archived = not assessment.is_archived
+    assessment.save(update_fields=['is_archived'])
+
+    action = "archived" if assessment.is_archived else "restored from archive"
+    messages.info(request, f"Assessment '{assessment.title}' has been {action}.")
+    return redirect('assessments:assessment_list')
+
+
+# ==============================================================================
+# Question Bank: Duplicate, Export CSV, Import CSV
+# ==============================================================================
+
+@login_required
+def question_duplicate_view(request, question_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    original = get_object_or_404(Question, id=question_id)
+    
+    # Clone question
+    clone = Question.objects.create(
+        category=original.category,
+        question_type=original.question_type,
+        question_text=f"{original.question_text} (Copy)",
+        rich_content=original.rich_content,
+        default_marks=original.default_marks,
+        difficulty=original.difficulty,
+        explanation=original.explanation,
+        hint=original.hint,
+        tags=original.tags,
+        numeric_answer=original.numeric_answer,
+        numeric_tolerance=original.numeric_tolerance,
+        short_answer_accepted=original.short_answer_accepted,
+        created_by=request.user
+    )
+
+    # Clone options
+    for opt in original.options.all():
+        QuestionOption.objects.create(
+            question=clone,
+            option_text=opt.option_text,
+            is_correct=opt.is_correct,
+            match_target=opt.match_target,
+            correct_order=opt.correct_order,
+            display_order=opt.display_order
+        )
+
+    AuditLog.objects.create(
+        user=request.user,
+        action='QUESTION_DUPLICATED',
+        target_model='Question',
+        target_id=str(clone.id),
+        details={'original_id': original.id}
+    )
+    messages.success(request, f"Question #{clone.id} duplicated successfully.")
+    return redirect('assessments:question_bank')
+
+
+@login_required
+def question_export_csv_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="breakthru_questions_bank.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'ID', 'Type', 'Question Text', 'Category', 'Difficulty',
+        'Default Marks', 'Hint', 'Explanation', 'Tags', 'Options_Pipe_Separated'
+    ])
+
+    for q in Question.objects.select_related('category').prefetch_related('options').all():
+        # Encode options for export
+        options_encoded = " | ".join([
+            f"{opt.option_text} [correct={opt.is_correct}]" for opt in q.options.all()
+        ]) if q.options.exists() else q.short_answer_accepted
+
+        writer.writerow([
+            q.id,
+            q.question_type,
+            q.question_text,
+            q.category.name if q.category else 'General',
+            q.difficulty,
+            q.default_marks,
+            q.hint,
+            q.explanation,
+            q.tags,
+            options_encoded
+        ])
+
+    return response
+
+
+@login_required
+def question_import_csv_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, "Invalid file format. Please upload a standard CSV (.csv) file.")
+            return redirect('assessments:question_bank')
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            reader = csv.DictReader(io.StringIO(decoded_file))
+            imported_count = 0
+
+            for row in reader:
+                q_text = row.get('Question Text') or row.get('question_text')
+                if not q_text:
+                    continue
+
+                q_type = (row.get('Type') or row.get('question_type') or 'SINGLE_CHOICE').strip().upper()
+                if q_type not in QuestionType.values:
+                    q_type = QuestionType.SINGLE_CHOICE
+
+                cat_name = (row.get('Category') or row.get('category') or 'General').strip()
+                cat, _ = Category.objects.get_or_create(name=cat_name)
+
+                diff = (row.get('Difficulty') or row.get('difficulty') or 'MEDIUM').strip().upper()
+                if diff not in Difficulty.values:
+                    diff = Difficulty.MEDIUM
+
+                marks = row.get('Default Marks') or row.get('default_marks') or '1.0'
+                try:
+                    marks = float(marks)
+                except ValueError:
+                    marks = 1.0
+
+                question = Question.objects.create(
+                    category=cat,
+                    question_type=q_type,
+                    question_text=q_text.strip(),
+                    default_marks=marks,
+                    difficulty=diff,
+                    hint=(row.get('Hint') or '').strip(),
+                    explanation=(row.get('Explanation') or '').strip(),
+                    tags=(row.get('Tags') or '').strip(),
+                    created_by=request.user
+                )
+
+                # Parse options if provided
+                raw_opts = row.get('Options_Pipe_Separated') or row.get('options') or ''
+                if raw_opts:
+                    parts = raw_opts.split('|')
+                    for idx, part in enumerate(parts):
+                        part = part.strip()
+                        if not part:
+                            continue
+                        is_corr = '[correct=True]' in part or '[correct=true]' in part
+                        clean_opt = part.replace('[correct=True]', '').replace('[correct=true]', '').replace('[correct=False]', '').replace('[correct=false]', '').strip()
+                        if clean_opt:
+                            QuestionOption.objects.create(
+                                question=question,
+                                option_text=clean_opt,
+                                is_correct=is_corr,
+                                display_order=idx + 1
+                            )
+
+                imported_count += 1
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='QUESTIONS_BULK_IMPORTED',
+                target_model='Question',
+                target_id='bulk',
+                details={'count': imported_count}
+            )
+            messages.success(request, f"Successfully imported {imported_count} questions into the Question Bank!")
+        except Exception as e:
+            messages.error(request, f"CSV Import failed: {str(e)}")
+
+        return redirect('assessments:question_bank')
+
+    return redirect('assessments:question_bank')

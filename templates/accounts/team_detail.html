@@ -1,0 +1,186 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ team.name }} — Group Details — {{ COMPANY_NAME }}{% endblock %}
+
+{% block breadcrumb %}Administration &rsaquo; <a href="{% url 'accounts:team_list' %}">Groups</a> &rsaquo; {{ team.name }}{% endblock %}
+
+{% block content %}
+<!-- Group Header -->
+<div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+        <span class="badge badge-info">{{ team.department.name }}</span>
+        {% if team.is_active %}
+          <span class="badge badge-success">Active</span>
+        {% else %}
+          <span class="badge badge-danger">Inactive</span>
+        {% endif %}
+      </div>
+      <h1 style="font-size: 1.65rem;">{{ team.name }}</h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+        Lead: <strong>{% if team.lead %}{{ team.lead.get_full_name|default:team.lead.username }}{% else %}Unassigned{% endif %}</strong>
+      </p>
+    </div>
+    <div>
+      <a href="{% url 'accounts:team_list' %}" class="btn btn-outline">&larr; Back to Groups</a>
+    </div>
+  </div>
+
+  <!-- Performance Metrics for Group -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-light); font-size: 0.85rem;">
+    <div>
+      <div style="color: var(--text-muted);">Enrolled Members</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: #a78bfa;">{{ members.count }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Assigned Tests</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: #60a5fa;">{{ assigned_assessments.count }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Total Attempts</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: var(--text-main);">{{ total_attempts }}</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Group Pass Rate</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: {% if pass_rate >= 70 %}var(--success){% else %}var(--warning){% endif %};">{{ pass_rate }}%</div>
+    </div>
+    <div>
+      <div style="color: var(--text-muted);">Average Score</div>
+      <div style="font-weight: 700; font-size: 1.2rem; color: var(--text-main);">{{ avg_score }}%</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-auto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+  <!-- Group Members List -->
+  <div style="grid-column: span 2; min-width: 0;">
+    <div class="card" style="padding: 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; color: var(--text-main);">Group Members ({{ members.count }})</h3>
+        <span class="badge badge-info">{{ members.count }} Employees</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Full Name</th>
+              <th>Email</th>
+              <th>Designation</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in members %}
+              <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.85rem;">{{ m.employee_id|default:"—" }}</td>
+                <td>
+                  <strong style="color: var(--text-main);">{{ m.get_full_name|default:m.username }}</strong>
+                </td>
+                <td style="color: var(--text-muted); font-size: 0.85rem;">{{ m.email }}</td>
+                <td style="font-size: 0.85rem;">{{ m.designation|default:"—" }}</td>
+                <td style="text-align: right;">
+                  <form method="POST" style="display: inline;" onsubmit="return confirm('Remove {{ m.get_full_name|default:m.username|escapejs }} from {{ team.name|escapejs }}?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="remove_member">
+                    <input type="hidden" name="user_id" value="{{ m.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No employees currently assigned to this group. Add employees using the panel on the right.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Assigned Assessments for this group -->
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; color: var(--text-main);">Assigned Assessments</h3>
+        <span class="badge badge-secondary">{{ assigned_assessments.count }} Tests</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Title</th>
+              <th>Duration</th>
+              <th>Pass Mark</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assigned_assessments %}
+              <tr>
+                <td style="font-family: var(--font-mono); font-weight: 700;">{{ a.code }}</td>
+                <td>
+                  <a href="{% url 'assessments:assessment_detail' a.id %}" style="color: var(--text-main); font-weight: 600;">
+                    {{ a.title }}
+                  </a>
+                </td>
+                <td>{{ a.duration_minutes }} Min</td>
+                <td>{{ a.pass_mark_percentage }}%</td>
+                <td style="text-align: right;">
+                  <a href="{% url 'assessments:assessment_detail' a.id %}" class="btn btn-sm btn-outline">View Test &rarr;</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                  No assessments currently targeted to this group.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Member Sidebar -->
+  <div style="min-width: 0;">
+    <div class="card" style="padding: 1.5rem;">
+      <div class="card-header" style="margin-bottom: 1rem;">
+        <h3 class="card-title" style="font-size: 1.1rem;">➕ Add Employee to Group</h3>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+        Employees can belong to multiple groups or cohorts simultaneously for targeted tests.
+      </p>
+
+      {% if available_users %}
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_member">
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label class="form-label">Select Employee</label>
+            <select name="user_id" class="form-select" required>
+              <option value="">Choose an employee...</option>
+              {% for u in available_users %}
+                <option value="{{ u.id }}">
+                  {{ u.get_full_name|default:u.username }} ({{ u.employee_id|default:"No ID" }} - {{ u.department.name|default:"General" }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Add to {{ team.name }}</button>
+        </form>
+      {% else %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem;">
+          All active employees are already enrolled in this group.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

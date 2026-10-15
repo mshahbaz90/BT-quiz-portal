@@ -47,7 +47,7 @@
         <!-- Assessment Management (Trainers & Admins) -->
         {% if user.is_trainer or user.is_assessment_admin %}
           <div class="nav-category">Management</div>
-          <a href="{% url 'assessments:assessment_list' %}" class="nav-link {% if request.resolver_match.app_name == 'assessments' and not 'employee' in request.path and not 'questions' in request.path %}active{% endif %}" id="nav-assessments-mgmt">
+          <a href="{% url 'assessments:assessment_list' %}" class="nav-link {% if request.resolver_match.app_name == 'assessments' and not 'employee' in request.path and not 'questions' in request.path and not 'categories' in request.path %}active{% endif %}" id="nav-assessments-mgmt">
             <span class="nav-icon">📋</span>
             <span>Assessments</span>
           </a>
@@ -55,35 +55,51 @@
             <span class="nav-icon">💡</span>
             <span>Question Bank</span>
           </a>
+          <a href="{% url 'assessments:category_list' %}" class="nav-link {% if 'categories' in request.path %}active{% endif %}" id="nav-categories">
+            <span class="nav-icon">🏷️</span>
+            <span>Categories</span>
+          </a>
           <a href="{% url 'grading:queue' %}" class="nav-link {% if 'grading' in request.path %}active{% endif %}" id="nav-grading-queue">
             <span class="nav-icon">✍️</span>
             <span>Grading Queue</span>
           </a>
         {% endif %}
 
-        <!-- Organization & Accounts (Admins) -->
-        {% if user.is_super_admin %}
+        <!-- Organization & Accounts (Admins & Trainers) -->
+        {% if user.is_super_admin or user.is_trainer %}
           <div class="nav-category">Administration</div>
-          <a href="{% url 'accounts:employee_list' %}" class="nav-link {% if 'accounts/employees' in request.path %}active{% endif %}" id="nav-employees">
+          {% if user.is_super_admin %}
+            <a href="{% url 'accounts:employee_list' %}" class="nav-link {% if 'accounts/employees' in request.path %}active{% endif %}" id="nav-employees">
+              <span class="nav-icon">👥</span>
+              <span>Employees</span>
+            </a>
+            <a href="{% url 'accounts:department_list' %}" class="nav-link {% if 'accounts/departments' in request.path %}active{% endif %}" id="nav-departments">
+              <span class="nav-icon">🏢</span>
+              <span>Departments</span>
+            </a>
+          {% endif %}
+          <a href="{% url 'accounts:team_list' %}" class="nav-link {% if 'accounts/teams' in request.path %}active{% endif %}" id="nav-teams">
             <span class="nav-icon">👥</span>
-            <span>Employees</span>
+            <span>Groups & Cohorts</span>
           </a>
-          <a href="{% url 'accounts:department_list' %}" class="nav-link {% if 'accounts/departments' in request.path %}active{% endif %}" id="nav-departments">
-            <span class="nav-icon">🏢</span>
-            <span>Departments</span>
-          </a>
-          <a href="{% url 'core:audit_logs' %}" class="nav-link {% if 'audit' in request.path %}active{% endif %}" id="nav-audit-logs">
-            <span class="nav-icon">🛡️</span>
-            <span>Audit Logs</span>
-          </a>
+          {% if user.is_super_admin %}
+            <a href="{% url 'core:audit_logs' %}" class="nav-link {% if 'audit' in request.path %}active{% endif %}" id="nav-audit-logs">
+              <span class="nav-icon">🛡️</span>
+              <span>Audit Logs</span>
+            </a>
+          {% endif %}
         {% endif %}
 
         <!-- Analytics & Reports -->
         {% if user.is_team_lead or user.is_trainer or user.is_super_admin %}
           <div class="nav-category">Reports</div>
-          <a href="{% url 'analytics:reports_overview' %}" class="nav-link {% if 'analytics' in request.path %}active{% endif %}" id="nav-reports">
+          <a href="{% url 'analytics:results_list' %}" class="nav-link {% if 'analytics/results' in request.path %}active{% endif %}" id="nav-results">
+            <span class="nav-icon">📝</span>
+            <span>Results & Attempts</span>
+          </a>
+          <a href="{% url 'analytics:reports_overview' %}" class="nav-link {% if request.path == '/analytics/' %}active{% endif %}" id="nav-reports">
             <span class="nav-icon">📈</span>
-            <span>Analytics & Reports</span>
+            <span>Executive Analytics</span>
           </a>
         {% endif %}
       </nav>

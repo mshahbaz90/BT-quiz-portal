@@ -58,3 +58,76 @@ class AssessmentsTestCase(TestCase):
         self.client.post(reverse('assessments:assessment_toggle_publish', kwargs={'assessment_id': assessment.id}))
         assessment.refresh_from_db()
         self.assertEqual(assessment.status, Assessment.Status.PUBLISHED)
+
+    def test_category_lifecycle(self):
+        # Create category
+        resp = self.client.post(reverse('assessments:category_list'), {
+            'name': 'DevOps & Cloud',
+            'description': 'Infrastructure, CI/CD, and Docker topics'
+        })
+        self.assertEqual(resp.status_code, 302)
+        from assessments.models import Category
+        cat = Category.objects.get(name='DevOps & Cloud')
+        self.assertEqual(cat.description, 'Infrastructure, CI/CD, and Docker topics')
+
+        # List categories
+        resp_list = self.client.get(reverse('assessments:category_list'))
+        self.assertEqual(resp_list.status_code, 200)
+        self.assertContains(resp_list, 'DevOps')
+
+        # Delete category
+        resp_del = self.client.get(reverse('assessments:category_delete', kwargs={'category_id': cat.id}))
+        self.assertEqual(resp_del.status_code, 302)
+        self.assertFalse(Category.objects.filter(id=cat.id).exists())
+
+    def test_assessment_duplication_and_archive(self):
+        assessment = Assessment.objects.create(
+            title='Security Fundamentals',
+            code='BT-SEC-01',
+            duration_minutes=30,
+            pass_mark_percentage=80,
+            status=Assessment.Status.PUBLISHED,
+            created_by=self.trainer
+        )
+        q = Question.objects.create(
+            question_text="What is a CSRF token?",
+            question_type=QuestionType.SINGLE_CHOICE,
+            default_marks=Decimal('1.00'),
+            created_by=self.trainer
+        )
+        AssessmentQuestion.objects.create(assessment=assessment, question=q, order=1)
+
+        # Duplicate
+        resp = self.client.get(reverse('assessments:assessment_duplicate', kwargs={'assessment_id': assessment.id}))
+        self.assertEqual(resp.status_code, 302)
+        clones = Assessment.objects.filter(title__contains='Security Fundamentals (Copy)')
+        self.assertTrue(clones.exists())
+        clone = clones.first()
+        self.assertEqual(clone.status, Assessment.Status.DRAFT)
+        self.assertEqual(clone.assessment_questions.count(), 1)
+
+        # Archive
+        self.assertFalse(assessment.is_archived)
+        resp_arch = self.client.get(reverse('assessments:assessment_archive', kwargs={'assessment_id': assessment.id}))
+        self.assertEqual(resp_arch.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertTrue(assessment.is_archived)
+
+    def test_question_duplicate_and_csv_export(self):
+        q = Question.objects.create(
+            question_text="Explain Python GIL",
+            question_type=QuestionType.LONG_ANSWER,
+            default_marks=Decimal('5.00'),
+            created_by=self.trainer
+        )
+
+        # Duplicate Question
+        resp_dup = self.client.get(reverse('assessments:question_duplicate', kwargs={'question_id': q.id}))
+        self.assertEqual(resp_dup.status_code, 302)
+        self.assertTrue(Question.objects.filter(question_text="Explain Python GIL (Copy)").exists())
+
+        # Export CSV
+        resp_exp = self.client.get(reverse('assessments:question_export_csv'))
+        self.assertEqual(resp_exp.status_code, 200)
+        self.assertEqual(resp_exp['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn(b'Explain Python GIL', resp_exp.content)

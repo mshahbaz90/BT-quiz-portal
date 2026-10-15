@@ -50,6 +50,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=30, choices=Role.choices, default=Role.EMPLOYEE, db_index=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
+    groups_assigned = models.ManyToManyField(Team, blank=True, related_name='assigned_group_members')
     designation = models.CharField(max_length=120, blank=True)
     phone = models.CharField(max_length=40, blank=True)
     must_change_password = models.BooleanField(default=False)

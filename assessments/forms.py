@@ -8,25 +8,54 @@ class AssessmentForm(forms.ModelForm):
         model = Assessment
         fields = [
             'title', 'code', 'category', 'status', 'duration_minutes',
-            'pass_mark_percentage', 'max_attempts', 'shuffle_questions',
-            'shuffle_options', 'allow_backtracking', 'negative_marking',
-            'negative_mark_penalty', 'release_results_mode', 'show_explanations_to_user',
-            'random_pool_count', 'assigned_departments', 'description', 'instructions'
+            'pass_mark_percentage', 'max_attempts', 'retake_cooldown_hours',
+            'questions_per_page', 'allow_save_and_resume', 'access_code',
+            'shuffle_questions', 'shuffle_options', 'allow_backtracking',
+            'negative_marking', 'negative_mark_penalty', 'release_results_mode',
+            'show_result_score', 'show_result_answers', 'show_explanations_to_user',
+            'certificate_enabled', 'random_pool_count', 'assigned_departments',
+            'assigned_teams', 'pass_message', 'fail_message', 'description', 'instructions'
         ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Python Backend Proficiency Assessment'}),
             'code': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. BT-TECH-01'}),
             'category': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'duration_minutes': forms.NumberInput(attrs={'class': 'form-input', 'min': 1}),
+            'duration_minutes': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'placeholder': 'Minutes (0 for unlimited)'}),
             'pass_mark_percentage': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.5', 'min': 0, 'max': 100}),
-            'max_attempts': forms.NumberInput(attrs={'class': 'form-input', 'min': 1}),
+            'max_attempts': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'placeholder': '0 for unlimited retakes'}),
+            'retake_cooldown_hours': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'placeholder': 'Hours to wait before retake'}),
+            'questions_per_page': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'placeholder': '1 for one-at-a-time, 0 for all-in-one'}),
+            'access_code': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Optional password/PIN for access'}),
             'negative_mark_penalty': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.05', 'min': 0}),
-            'random_pool_count': forms.NumberInput(attrs={'class': 'form-input', 'min': 0}),
+            'random_pool_count': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'placeholder': '0 uses all attached questions'}),
             'release_results_mode': forms.Select(attrs={'class': 'form-select'}),
             'assigned_departments': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 4}),
+            'assigned_teams': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 4}),
+            'pass_message': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 2, 'placeholder': 'Custom message displayed upon passing'}),
+            'fail_message': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 2, 'placeholder': 'Custom message displayed upon failing'}),
             'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 2}),
             'instructions': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for f in [
+            'category', 'questions_per_page', 'retake_cooldown_hours', 'access_code',
+            'pass_message', 'fail_message', 'description', 'instructions',
+            'assigned_departments', 'assigned_teams'
+        ]:
+            if f in self.fields:
+                self.fields[f].required = False
+
+
+class CategoryForm(forms.ModelForm):
+    class Meta:
+        model = Category
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Category Name (e.g. Core Engineering)'}),
+            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 2, 'placeholder': 'Optional category description'}),
         }
 
 

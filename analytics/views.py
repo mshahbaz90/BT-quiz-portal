@@ -10,7 +10,83 @@ from django.utils import timezone
 
 from exam.models import AssessmentAttempt, AttemptResponse
 from assessments.models import Assessment, Question
-from accounts.models import Department, User
+from accounts.models import Department, User, Team
+from django.core.paginator import Paginator
+
+
+@login_required
+def results_list_view(request):
+    if not (request.user.is_team_lead or request.user.is_trainer or request.user.is_super_admin):
+        return HttpResponseForbidden("Access restricted to Supervisors, Trainers, and Administrators.")
+
+    q = request.GET.get('q', '').strip()
+    assess_id = request.GET.get('assess', '')
+    dept_id = request.GET.get('dept', '')
+    team_id = request.GET.get('team', '')
+    status_filter = request.GET.get('status', '')
+    result_filter = request.GET.get('result', '')
+
+    attempts = AssessmentAttempt.objects.select_related(
+        'user__department', 'user__team', 'assessment', 'certificate'
+    ).order_by('-started_at')
+
+    if q:
+        attempts = attempts.filter(
+            models.Q(user__first_name__icontains=q) |
+            models.Q(user__last_name__icontains=q) |
+            models.Q(user__username__icontains=q) |
+            models.Q(user__employee_id__icontains=q) |
+            models.Q(assessment__title__icontains=q) |
+            models.Q(assessment__code__icontains=q)
+        )
+    if assess_id:
+        attempts = attempts.filter(assessment_id=assess_id)
+    if dept_id:
+        attempts = attempts.filter(user__department_id=dept_id)
+    if team_id:
+        attempts = attempts.filter(
+            models.Q(user__team_id=team_id) | models.Q(user__groups_assigned__id=team_id)
+        ).distinct()
+    if status_filter:
+        attempts = attempts.filter(status=status_filter)
+    if result_filter == 'pass':
+        attempts = attempts.filter(is_passed=True)
+    elif result_filter == 'fail':
+        attempts = attempts.filter(is_passed=False)
+
+    total_count = attempts.count()
+    graded_qs = attempts.filter(status=AssessmentAttempt.Status.GRADED)
+    graded_count = graded_qs.count()
+    pass_count = graded_qs.filter(is_passed=True).count()
+    pass_rate = round((pass_count / graded_count * 100), 1) if graded_count > 0 else 0
+    avg_score = graded_qs.aggregate(models.Avg('percentage'))['percentage__avg']
+    avg_score = round(avg_score, 1) if avg_score else 0
+
+    paginator = Paginator(attempts, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    departments = Department.objects.filter(is_active=True)
+    teams = Team.objects.filter(is_active=True)
+    assessments = Assessment.objects.all()
+
+    return render(request, 'analytics/results_list.html', {
+        'page_obj': page_obj,
+        'total_count': total_count,
+        'graded_count': graded_count,
+        'pass_rate': pass_rate,
+        'avg_score': avg_score,
+        'departments': departments,
+        'teams': teams,
+        'assessments': assessments,
+        'q': q,
+        'assess_id': assess_id,
+        'dept_id': dept_id,
+        'team_id': team_id,
+        'status_filter': status_filter,
+        'result_filter': result_filter,
+        'statuses': AssessmentAttempt.Status.choices,
+    })
 
 
 @login_required

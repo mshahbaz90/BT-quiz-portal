@@ -315,3 +315,87 @@ def department_list_view(request):
         return redirect('accounts:department_list')
 
     return render(request, 'accounts/department_list.html', {'departments': departments, 'form': form})
+
+
+@login_required
+def team_list_view(request):
+    if not (request.user.is_trainer or request.user.is_assessment_admin or request.user.is_super_admin):
+        return HttpResponseForbidden("Access restricted to Administrators and Trainers.")
+
+    form = TeamForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        team = form.save()
+        AuditLog.objects.create(
+            user=request.user,
+            action='TEAM_CREATED',
+            target_model='Team',
+            target_id=str(team.id),
+            details={'name': team.name, 'department': team.department.name}
+        )
+        messages.success(request, f"Group / Team '{team.name}' created successfully.")
+        return redirect('accounts:team_list')
+
+    teams = Team.objects.select_related('department', 'lead').prefetch_related('members', 'assigned_group_members', 'assigned_assessments').all()
+
+    return render(request, 'accounts/team_list.html', {
+        'teams': teams,
+        'form': form,
+    })
+
+
+@login_required
+def team_detail_view(request, team_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin or request.user.is_super_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    team = get_object_or_404(Team.objects.select_related('department', 'lead').prefetch_related('assigned_assessments'), id=team_id)
+    
+    # Combined members (primary team OR assigned groups)
+    members = User.objects.filter(models.Q(team=team) | models.Q(groups_assigned=team)).distinct().order_by('first_name', 'last_name')
+
+    # Handle member actions
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        target_user_id = request.POST.get('user_id')
+        if target_user_id:
+            target_user = get_object_or_404(User, id=target_user_id)
+            if action == 'add_member':
+                target_user.groups_assigned.add(team)
+                messages.success(request, f"Added {target_user.get_full_name() or target_user.username} to {team.name}.")
+            elif action == 'remove_member':
+                target_user.groups_assigned.remove(team)
+                if target_user.team == team:
+                    target_user.team = None
+                    target_user.save(update_fields=['team'])
+                messages.info(request, f"Removed {target_user.get_full_name() or target_user.username} from {team.name}.")
+            return redirect('accounts:team_detail', team_id=team.id)
+
+    # Assessments assigned to this group
+    assigned_assessments = team.assigned_assessments.all()
+
+    # Calculate group performance metrics
+    from exam.models import AssessmentAttempt
+    group_attempts = AssessmentAttempt.objects.filter(
+        user__in=members,
+        assessment__in=assigned_assessments
+    ) if assigned_assessments.exists() else AssessmentAttempt.objects.none()
+
+    total_attempts = group_attempts.count()
+    graded_attempts = group_attempts.filter(status=AssessmentAttempt.Status.GRADED)
+    passed_attempts = graded_attempts.filter(is_passed=True).count()
+    pass_rate = round((passed_attempts / graded_attempts.count() * 100), 1) if graded_attempts.exists() else 0
+    avg_score = graded_attempts.aggregate(models.Avg('percentage'))['percentage__avg']
+    avg_score = round(avg_score, 1) if avg_score else 0
+
+    # Non-members available to add
+    available_users = User.objects.exclude(id__in=members.values_list('id', flat=True)).filter(is_active=True).order_by('first_name', 'last_name')[:100]
+
+    return render(request, 'accounts/team_detail.html', {
+        'team': team,
+        'members': members,
+        'assigned_assessments': assigned_assessments,
+        'total_attempts': total_attempts,
+        'pass_rate': pass_rate,
+        'avg_score': avg_score,
+        'available_users': available_users,
+    })
