@@ -190,3 +190,32 @@ class AccountsTestCase(TestCase):
         self.assertContains(resp, reverse('accounts:employee_delete', kwargs={'user_id': self.employee.id}))
         self.assertContains(resp, "✏️ Edit")
         self.assertContains(resp, "🗑️ Delete")
+
+    def test_strictly_super_admin_only_can_modify_employees(self):
+        # Create a non-super-admin trainer
+        trainer = User.objects.create_user(
+            username="trainer_test",
+            password="Password123!",
+            role=Role.TRAINER
+        )
+        self.client.login(username='trainer_test', password='Password123!')
+
+        # 1. Employee list -> 403
+        resp = self.client.get(reverse('accounts:employee_list'))
+        self.assertEqual(resp.status_code, 403)
+
+        # 2. Employee create -> 403
+        resp = self.client.get(reverse('accounts:employee_create'))
+        self.assertEqual(resp.status_code, 403)
+
+        # 3. Employee edit -> 403
+        resp = self.client.get(reverse('accounts:employee_edit', kwargs={'user_id': self.employee.id}))
+        self.assertEqual(resp.status_code, 403)
+
+        # 4. Employee delete -> 403
+        resp = self.client.post(reverse('accounts:employee_delete', kwargs={'user_id': self.employee.id}))
+        self.assertEqual(resp.status_code, 403)
+
+        # 5. Employee toggle status -> 403
+        resp = self.client.post(reverse('accounts:employee_toggle_status', kwargs={'user_id': self.employee.id}))
+        self.assertEqual(resp.status_code, 403)

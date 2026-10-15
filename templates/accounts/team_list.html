@@ -10,10 +10,12 @@
     <h1 style="font-size: 1.6rem;">Groups & Cohorts</h1>
     <p style="color: var(--text-muted); font-size: 0.9rem;">Organize 300+ employees into functional teams, project groups, and training cohorts for targeted assessment assignment.</p>
   </div>
-  <div style="display: flex; gap: 0.5rem;">
-    <a href="{% url 'accounts:department_list' %}" class="btn btn-outline">🏢 Departments</a>
-    <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">👥 Employees</a>
-  </div>
+  {% if user.is_super_admin %}
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="{% url 'accounts:department_list' %}" class="btn btn-outline">🏢 Departments</a>
+      <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline">👥 Employees</a>
+    </div>
+  {% endif %}
 </div>
 
 <div class="grid-auto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">

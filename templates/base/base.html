@@ -72,7 +72,7 @@
         <!-- Organization & Accounts (Admins & Trainers) -->
         {% if user.is_super_admin or user.is_trainer %}
           <div class="nav-category">Administration</div>
-          {% if user.is_super_admin or user.is_assessment_admin %}
+          {% if user.is_super_admin %}
             <a href="{% url 'accounts:employee_list' %}" class="nav-link {% if 'accounts/employees' in request.path %}active{% endif %}" id="nav-employees">
               <span class="nav-icon">👥</span>
               <span>Employees</span>
@@ -175,7 +175,6 @@
       <!-- Global Footer -->
       <footer style="padding: 1.25rem 2rem; border-top: 1px solid var(--border-light); font-size: 0.8rem; color: var(--text-subtle); display: flex; justify-content: space-between; align-items: center;">
         <div>&copy; {{ CURRENT_YEAR }} {{ COMPANY_NAME }} &bull; <em>{{ COMPANY_TAGLINE }}</em></div>
-        <div>{{ PORTAL_URL }} &bull; Internal Enterprise Portal</div>
       </footer>
     </div>
   </div>

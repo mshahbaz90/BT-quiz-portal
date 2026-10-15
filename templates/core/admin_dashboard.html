@@ -12,7 +12,9 @@
   </div>
   <div style="display: flex; gap: 0.75rem;">
     <a href="{% url 'assessments:assessment_create' %}" class="btn btn-primary">➕ New Assessment</a>
-    <a href="{% url 'accounts:employee_create' %}" class="btn btn-secondary">👥 Add Employee</a>
+    {% if user.is_super_admin %}
+      <a href="{% url 'accounts:employee_create' %}" class="btn btn-secondary">👥 Add Employee</a>
+    {% endif %}
   </div>
 </div>
 
