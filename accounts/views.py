@@ -226,6 +226,7 @@ def employee_delete_view(request, user_id):
     if request.method == 'POST':
         emp_name = target_user.get_full_name() or target_user.username
         emp_id = target_user.employee_id or ''
+        emp_username = target_user.username
         target_user.delete()
 
         AuditLog.objects.create(
@@ -234,7 +235,7 @@ def employee_delete_view(request, user_id):
             target_model='User',
             target_id=str(user_id),
             ip_address=getattr(request, 'client_ip', None),
-            details={'name': emp_name, 'employee_id': emp_id}
+            details={'name': emp_name, 'employee_id': emp_id, 'username': emp_username}
         )
 
         messages.success(request, f"Employee account '{emp_name}' was permanently deleted.")

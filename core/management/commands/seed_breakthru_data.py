@@ -43,6 +43,12 @@ class Command(BaseCommand):
         frontend_team, _ = Team.objects.get_or_create(name="Frontend & Web Apps", department=it_dept)
 
         # 3. Users
+        from core.models import AuditLog
+        deleted_usernames = set()
+        for log in AuditLog.objects.filter(action='EMPLOYEE_DELETED'):
+            if log.details and 'username' in log.details:
+                deleted_usernames.add(log.details['username'])
+
         # Super Administrator
         admin_user = User.objects.filter(username="admin").first()
         if not admin_user:
@@ -60,72 +66,76 @@ class Command(BaseCommand):
             self.stdout.write("Created Super Admin: admin / BreakThru2026!")
 
         # Trainer
-        trainer = User.objects.filter(username="trainer.ali").first()
-        if not trainer:
-            trainer = User.objects.create_user(
-                username="trainer.ali",
-                email="ali.trainer@breakthru.pk",
-                password="BreakThru2026!",
-                employee_id="BT-TRN-101",
-                first_name="Ali",
-                last_name="Raza",
-                role=Role.TRAINER,
-                designation="Lead Technical Trainer",
-                department=hr_dept
-            )
-            self.stdout.write("Created Trainer: trainer.ali / BreakThru2026!")
+        if "trainer.ali" not in deleted_usernames:
+            trainer = User.objects.filter(username="trainer.ali").first()
+            if not trainer:
+                trainer = User.objects.create_user(
+                    username="trainer.ali",
+                    email="ali.trainer@breakthru.pk",
+                    password="BreakThru2026!",
+                    employee_id="BT-TRN-101",
+                    first_name="Ali",
+                    last_name="Raza",
+                    role=Role.TRAINER,
+                    designation="Lead Technical Trainer",
+                    department=hr_dept
+                )
+                self.stdout.write("Created Trainer: trainer.ali / BreakThru2026!")
 
         # Team Lead
-        lead = User.objects.filter(username="lead.kamran").first()
-        if not lead:
-            lead = User.objects.create_user(
-                username="lead.kamran",
-                email="kamran.lead@breakthru.pk",
-                password="BreakThru2026!",
-                employee_id="BT-ENG-201",
-                first_name="Kamran",
-                last_name="Akhtar",
-                role=Role.TEAM_LEAD,
-                designation="Engineering Team Lead",
-                department=it_dept,
-                team=backend_team
-            )
-            backend_team.lead = lead
-            backend_team.save()
-            self.stdout.write("Created Team Lead: lead.kamran / BreakThru2026!")
+        if "lead.kamran" not in deleted_usernames:
+            lead = User.objects.filter(username="lead.kamran").first()
+            if not lead:
+                lead = User.objects.create_user(
+                    username="lead.kamran",
+                    email="kamran.lead@breakthru.pk",
+                    password="BreakThru2026!",
+                    employee_id="BT-ENG-201",
+                    first_name="Kamran",
+                    last_name="Akhtar",
+                    role=Role.TEAM_LEAD,
+                    designation="Engineering Team Lead",
+                    department=it_dept,
+                    team=backend_team
+                )
+                backend_team.lead = lead
+                backend_team.save()
+                self.stdout.write("Created Team Lead: lead.kamran / BreakThru2026!")
 
         # Candidates / Employees
-        emp1 = User.objects.filter(username="emp.zara").first()
-        if not emp1:
-            emp1 = User.objects.create_user(
-                username="emp.zara",
-                email="zara.khan@breakthru.pk",
-                password="BreakThru2026!",
-                employee_id="BT-ENG-301",
-                first_name="Zara",
-                last_name="Khan",
-                role=Role.EMPLOYEE,
-                designation="Full Stack Software Engineer",
-                department=it_dept,
-                team=backend_team
-            )
-            self.stdout.write("Created Employee: emp.zara / BreakThru2026!")
+        if "emp.zara" not in deleted_usernames:
+            emp1 = User.objects.filter(username="emp.zara").first()
+            if not emp1:
+                emp1 = User.objects.create_user(
+                    username="emp.zara",
+                    email="zara.khan@breakthru.pk",
+                    password="BreakThru2026!",
+                    employee_id="BT-ENG-301",
+                    first_name="Zara",
+                    last_name="Khan",
+                    role=Role.EMPLOYEE,
+                    designation="Full Stack Software Engineer",
+                    department=it_dept,
+                    team=backend_team
+                )
+                self.stdout.write("Created Employee: emp.zara / BreakThru2026!")
 
-        emp2 = User.objects.filter(username="emp.bilal").first()
-        if not emp2:
-            emp2 = User.objects.create_user(
-                username="emp.bilal",
-                email="bilal.tariq@breakthru.pk",
-                password="BreakThru2026!",
-                employee_id="BT-ENG-302",
-                first_name="Bilal",
-                last_name="Tariq",
-                role=Role.EMPLOYEE,
-                designation="Frontend Developer",
-                department=it_dept,
-                team=frontend_team
-            )
-            self.stdout.write("Created Employee: emp.bilal / BreakThru2026!")
+        if "emp.bilal" not in deleted_usernames:
+            emp2 = User.objects.filter(username="emp.bilal").first()
+            if not emp2:
+                emp2 = User.objects.create_user(
+                    username="emp.bilal",
+                    email="bilal.tariq@breakthru.pk",
+                    password="BreakThru2026!",
+                    employee_id="BT-ENG-302",
+                    first_name="Bilal",
+                    last_name="Tariq",
+                    role=Role.EMPLOYEE,
+                    designation="Frontend Developer",
+                    department=it_dept,
+                    team=frontend_team
+                )
+                self.stdout.write("Created Employee: emp.bilal / BreakThru2026!")
 
         # 4. Categories
         cat_tech, _ = Category.objects.get_or_create(name="Technical Proficiency", defaults={'description': "Core software architecture, programming & tools"})

@@ -89,22 +89,22 @@
             {% endif %}
           </td>
           <td style="text-align: right; white-space: nowrap;">
-            <div style="display: inline-flex; gap: 0.4rem; align-items: center; justify-content: flex-end;">
+            <div style="display: inline-flex; gap: 0.45rem; align-items: center; justify-content: flex-end;">
               <a href="{% url 'accounts:employee_edit' emp.id %}" class="btn btn-outline btn-sm" title="Edit designation, department, role, or credentials">
                 ✏️ Edit
               </a>
               {% if emp != request.user %}
                 <form method="POST" action="{% url 'accounts:employee_toggle_status' emp.id %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to {% if emp.is_active %}suspend{% else %}activate{% endif %} this employee?');">
                   {% csrf_token %}
-                  <button type="submit" class="btn btn-outline btn-sm" style="color: {% if emp.is_active %}#d97706{% else %}#059669{% endif %};" title="{% if emp.is_active %}Suspend Account{% else %}Activate Account{% endif %}">
+                  <button type="submit" class="btn btn-outline btn-sm" style="color: {% if emp.is_active %}#f59e0b{% else %}#10b981{% endif %}; border-color: {% if emp.is_active %}rgba(245, 158, 11, 0.45){% else %}rgba(16, 185, 129, 0.45){% endif %};" title="{% if emp.is_active %}Suspend Account{% else %}Activate Account{% endif %}">
                     {% if emp.is_active %}Suspend{% else %}Activate{% endif %}
                   </button>
                 </form>
-                <a href="{% url 'accounts:employee_delete' emp.id %}" class="btn btn-outline btn-sm" style="color: #dc2626; border-color: rgba(220, 38, 38, 0.35);" title="Delete Employee Account">
+                <a href="{% url 'accounts:employee_delete' emp.id %}" class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(239, 68, 68, 0.55);" title="Delete Employee Account">
                   🗑️ Delete
                 </a>
               {% else %}
-                <span style="font-size: 0.8rem; color: var(--text-muted); padding: 0 0.5rem; font-weight: 500;">(You)</span>
+                <span style="font-size: 0.82rem; color: var(--text-muted); padding: 0 0.5rem; font-weight: 500;">(You)</span>
               {% endif %}
             </div>
           </td>
