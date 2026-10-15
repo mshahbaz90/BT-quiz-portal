@@ -101,3 +101,43 @@ class ExamAndGradingTestCase(TestCase):
         self.assertEqual(repeat_submit.status_code, 302)
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, AssessmentAttempt.Status.GRADED)
+
+    def test_access_code_pin_protection(self):
+        # Configure PIN on assessment
+        self.assessment.access_code = 'PIN-789'
+        self.assessment.save()
+
+        # 1. Attempt start with incorrect PIN
+        resp_bad = self.client.post(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}), {
+            'access_code': 'WRONG-PIN'
+        })
+        self.assertEqual(resp_bad.status_code, 200)
+        self.assertContains(resp_bad, 'Invalid Access Code')
+
+        # 2. Attempt start with correct PIN
+        resp_good = self.client.post(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}), {
+            'access_code': 'PIN-789'
+        })
+        self.assertEqual(resp_good.status_code, 302)
+        self.assertTrue(AssessmentAttempt.objects.filter(user=self.candidate, assessment=self.assessment).exists())
+
+    def test_retake_cooldown_enforcement(self):
+        self.assessment.retake_cooldown_hours = 12
+        self.assessment.save()
+
+        # Create a submitted attempt just now
+        AssessmentAttempt.objects.create(
+            user=self.candidate,
+            assessment=self.assessment,
+            assessment_version=1,
+            attempt_number=1,
+            deadline_at=self.assessment.created_at,
+            status=AssessmentAttempt.Status.GRADED,
+            submitted_at=self.assessment.created_at
+        )
+
+        from django.utils import timezone
+        # If candidate tries to start another attempt immediately
+        resp_cooldown = self.client.get(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}))
+        self.assertEqual(resp_cooldown.status_code, 200)
+        self.assertContains(resp_cooldown, 'Retake Cooldown Active')

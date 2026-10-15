@@ -88,6 +88,24 @@
       </div>
     </div>
   </div>
+
+  <!-- ClassMarker Test Delivery & Controlled Link -->
+  <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.25); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #a78bfa; letter-spacing: 0.05em;">🔗 Direct Assessment Link (ClassMarker-Style Delivery)</div>
+      <div style="font-family: var(--font-mono); font-size: 0.88rem; color: var(--text-main); margin-top: 0.25rem;">
+        <span id="direct-link-text">{{ request.scheme }}://{{ request.get_host }}{% url 'exam:start_instruction' assessment.id %}</span>
+      </div>
+      {% if assessment.access_code %}
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+          Required Access PIN: <strong style="font-family: var(--font-mono); color: #c4b5fd;">{{ assessment.access_code }}</strong>
+        </div>
+      {% endif %}
+    </div>
+    <button type="button" class="btn btn-sm btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('direct-link-text').innerText); this.innerText='✓ Copied Link!'; setTimeout(() => this.innerText='📋 Copy Link', 2000);">
+      📋 Copy Link
+    </button>
+  </div>
 </div>
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">

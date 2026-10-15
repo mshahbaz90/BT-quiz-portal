@@ -29,14 +29,21 @@ def start_instruction_view(request, assessment_id):
     ).first()
 
     if active_attempt:
-        return redirect('exam:take_assessment', attempt_id=active_attempt.id)
+        if assessment.allow_save_and_resume:
+            return redirect('exam:take_assessment', attempt_id=active_attempt.id)
+        else:
+            return render(request, 'exam/instruction.html', {
+                'assessment': assessment,
+                'resume_forbidden': True,
+            })
 
     # Check attempt limit
-    completed_attempts_count = AssessmentAttempt.objects.filter(
+    completed_attempts = AssessmentAttempt.objects.filter(
         user=user,
         assessment=assessment,
         status__in=[AssessmentAttempt.Status.SUBMITTED, AssessmentAttempt.Status.GRADED]
-    ).count()
+    ).order_by('-submitted_at')
+    completed_attempts_count = completed_attempts.count()
 
     if assessment.max_attempts > 0 and completed_attempts_count >= assessment.max_attempts:
         return render(request, 'exam/attempt_limit_reached.html', {
@@ -44,7 +51,33 @@ def start_instruction_view(request, assessment_id):
             'completed_count': completed_attempts_count,
         })
 
+    # Check retake cooldown
+    if assessment.retake_cooldown_hours > 0 and completed_attempts.exists():
+        last_attempt = completed_attempts.first()
+        if last_attempt and last_attempt.submitted_at:
+            cooldown_deadline = last_attempt.submitted_at + timedelta(hours=assessment.retake_cooldown_hours)
+            if now < cooldown_deadline:
+                remaining_seconds = int((cooldown_deadline - now).total_seconds())
+                remaining_hours = round(remaining_seconds / 3600, 1)
+                return render(request, 'exam/instruction.html', {
+                    'assessment': assessment,
+                    'cooldown_active': True,
+                    'remaining_hours': remaining_hours,
+                    'cooldown_deadline': cooldown_deadline,
+                })
+
+    access_code_error = False
     if request.method == 'POST':
+        # Verify access code PIN if configured
+        if assessment.access_code:
+            entered_code = request.POST.get('access_code', '').strip()
+            if entered_code != assessment.access_code:
+                return render(request, 'exam/instruction.html', {
+                    'assessment': assessment,
+                    'access_code_error': True,
+                    'entered_code': entered_code,
+                })
+
         # Initiate new assessment attempt with snapshotting
         with transaction.atomic():
             attempt_number = completed_attempts_count + 1
@@ -309,10 +342,27 @@ def attempt_result_view(request, attempt_id):
         )
     )
 
+    # ClassMarker-style Category / Domain Performance Breakdown
+    category_breakdown = {}
+    for snap in attempt.snapshots.select_related('question__category', 'response').all():
+        cat_name = snap.question.category.name if (snap.question and snap.question.category) else 'General Domain'
+        if cat_name not in category_breakdown:
+            category_breakdown[cat_name] = {'possible': Decimal('0.00'), 'earned': Decimal('0.00')}
+        category_breakdown[cat_name]['possible'] += snap.marks_allocated
+        if hasattr(snap, 'response') and snap.response and snap.response.marks_awarded:
+            category_breakdown[cat_name]['earned'] += snap.response.marks_awarded
+
+    for cat_data in category_breakdown.values():
+        if cat_data['possible'] > 0:
+            cat_data['percentage'] = round((cat_data['earned'] / cat_data['possible']) * 100, 1)
+        else:
+            cat_data['percentage'] = Decimal('0.00')
+
     return render(request, 'exam/result.html', {
         'attempt': attempt,
         'assessment': attempt.assessment,
         'certificate': certificate,
+        'category_breakdown': category_breakdown,
         'can_view_breakdown': can_view_breakdown,
         'is_staff_view': is_staff and (attempt.user != request.user),
     })

@@ -5,31 +5,55 @@
 {% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Instructions{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
+<div style="max-width: 820px; margin: 0 auto;">
   <div class="card" style="padding: 2.25rem;">
     <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
       <span class="badge badge-info" style="margin-bottom: 0.5rem;">{{ assessment.category.name|default:"Corporate Assessment" }}</span>
       <h1 style="font-size: 1.85rem; margin-bottom: 0.5rem;">{{ assessment.title }}</h1>
-      <p style="color: var(--text-muted); font-size: 0.95rem;">Assessment Code: <strong>{{ assessment.code }}</strong></p>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">Assessment Code: <strong>{{ assessment.code }}</strong> &bull; Version {{ assessment.version }}</p>
     </div>
 
-    <!-- Parameter Badges -->
-    <div class="grid grid-cols-4" style="gap: 1rem; margin-bottom: 2rem;">
-      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
-        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Duration</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 0.25rem;">{{ assessment.duration_minutes }} Mins</div>
+    {% if resume_forbidden %}
+      <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+        ⚠️ <strong>Save & Resume Disabled:</strong> This assessment does not permit resuming paused sessions. Please contact your administrator or trainer for an attempt reset.
       </div>
-      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
-        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Questions</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 0.25rem;">{{ assessment.assessment_questions.count }}</div>
+    {% endif %}
+
+    {% if cooldown_active %}
+      <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+        ⏳ <strong>Retake Cooldown Active:</strong> You completed an attempt recently. Per testing policy, you must wait <strong>{{ remaining_hours }} hours</strong> (until {{ cooldown_deadline|date:"M d, Y H:i" }}) before retaking this assessment.
       </div>
-      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
-        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Pass Mark</div>
+    {% endif %}
+
+    {% if access_code_error %}
+      <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+        🔒 <strong>Invalid Access Code:</strong> The PIN code you entered was incorrect. Please verify the code provided by your administrator.
+      </div>
+    {% endif %}
+
+    <!-- Parameter Badges Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Duration</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #a78bfa; margin-top: 0.25rem;">{{ assessment.duration_minutes }} Min</div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Questions</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #60a5fa; margin-top: 0.25rem;">{{ assessment.assessment_questions.count }}</div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Passing Mark</div>
         <div style="font-size: 1.25rem; font-weight: 800; color: var(--success); margin-top: 0.25rem;">{{ assessment.pass_mark_percentage }}%</div>
       </div>
-      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
-        <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Attempts Allowed</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem;">
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Paging Mode</div>
+        <div style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-top: 0.35rem;">
+          {% if assessment.questions_per_page == 1 %}1 per page{% elif assessment.questions_per_page == 0 %}All in one{% else %}{{ assessment.questions_per_page }}/page{% endif %}
+        </div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Max Attempts</div>
+        <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-top: 0.25rem;">
           {% if assessment.max_attempts > 0 %}{{ assessment.max_attempts }}{% else %}Unlimited{% endif %}
         </div>
       </div>
@@ -43,12 +67,12 @@
       </div>
     </div>
 
-    <!-- Integrity & Rules Notice -->
-    <div class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 2rem;">
-      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Testing Policies:</h4>
+    <!-- Testing Policies -->
+    <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1.25rem; margin-bottom: 2rem;">
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">ClassMarker-Standard Testing Policies:</h4>
       <ul style="padding-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;">
-        <li><strong>Autosave:</strong> Every response is securely autosaved to BreakThru servers in real-time. If you accidentally reload your page, your progress is fully retained.</li>
-        <li><strong>Server-Authoritative Timer:</strong> The countdown clock runs on the server. When time expires, your test will be finalized automatically.</li>
+        <li><strong>Server Autosave:</strong> Every answer choice and text response is securely autosaved to BreakThru servers in real-time. If you accidentally reload your page, your progress is fully retained.</li>
+        <li><strong>Server-Enforced Timer:</strong> The countdown clock runs on the server. When time expires, your test will be finalized automatically.</li>
         {% if assessment.negative_marking %}
           <li style="color: var(--danger);"><strong>Negative Marking:</strong> Incorrect answers incur a penalty of {{ assessment.negative_mark_penalty }} marks.</li>
         {% else %}
@@ -60,15 +84,34 @@
       </ul>
     </div>
 
-    <form method="POST" onsubmit="return confirm('Ready to begin? Your countdown timer will start immediately.');">
-      {% csrf_token %}
-      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
-        <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline">Cancel</a>
-        <button type="submit" class="btn btn-primary btn-lg" style="box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
-          🚀 Start Assessment Now
-        </button>
+    {% if not cooldown_active and not resume_forbidden %}
+      <form method="POST" onsubmit="return confirm('Ready to begin? Your countdown timer will start immediately.');">
+        {% csrf_token %}
+
+        {% if assessment.access_code %}
+          <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.25); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+            <label class="form-label" style="font-weight: 600; color: var(--text-main);">
+              🔒 Protected Assessment: Enter Access Code / PIN *
+            </label>
+            <input type="password" name="access_code" placeholder="Enter Access Code / PIN" required class="form-input" style="max-width: 320px;" autocomplete="off">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+              This assessment requires an authorization PIN provided by your trainer or supervisor.
+            </div>
+          </div>
+        {% endif %}
+
+        <div style="display: flex; justify-content: flex-end; gap: 1rem; flex-wrap: wrap;">
+          <a href="{% url 'assessments:employee_list' %}" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-lg" style="box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);">
+            🚀 Start Assessment Now
+          </button>
+        </div>
+      </form>
+    {% else %}
+      <div style="display: flex; justify-content: flex-end;">
+        <a href="{% url 'assessments:employee_list' %}" class="btn btn-primary">&larr; Return to Catalog</a>
       </div>
-    </form>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

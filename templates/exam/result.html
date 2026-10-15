@@ -110,9 +110,39 @@
     </div>
   </div>
 
+  <!-- ClassMarker-Style Category / Domain Performance Breakdown -->
+  {% if category_breakdown and attempt.status == 'GRADED' %}
+    <div class="card" style="margin-top: 1.5rem; padding: 1.5rem;">
+      <div class="card-header" style="margin-bottom: 1rem;">
+        <h2 class="card-title" style="font-size: 1.15rem;">📊 Domain & Category Performance</h2>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Category Breakdown</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for cat_name, data in category_breakdown.items %}
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+              <strong style="color: var(--text-main); font-size: 0.95rem;">{{ cat_name }}</strong>
+              <div style="font-size: 0.9rem; font-weight: 700;">
+                <span style="color: #a78bfa;">{{ data.earned }} / {{ data.possible }} Pts</span>
+                <span style="margin-left: 0.5rem; color: {% if data.percentage >= 70 %}var(--success){% else %}var(--danger){% endif %};">
+                  ({{ data.percentage }}%)
+                </span>
+              </div>
+            </div>
+            <!-- Progress Bar -->
+            <div style="background: rgba(5, 2, 18, 0.5); border-radius: 999px; height: 8px; overflow: hidden; border: 1px solid var(--border-light);">
+              <div style="width: {{ data.percentage }}%; height: 100%; background: linear-gradient(90deg, #7c3aed, #175dfd); border-radius: 999px;"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <!-- Detailed Question Breakdown -->
   {% if can_view_breakdown %}
-    <div class="card" style="margin-top: 2rem; padding: 1.5rem;">
+    <div class="card" style="margin-top: 1.5rem; padding: 1.5rem;">
       <div class="card-header" style="margin-bottom: 1.25rem;">
         <h2 class="card-title" style="font-size: 1.2rem;">Detailed Response & Question Breakdown</h2>
         <span style="font-size: 0.85rem; color: var(--text-muted);">{{ attempt.snapshots.count }} Questions</span>
