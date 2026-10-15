@@ -27,7 +27,8 @@ class ExamAndGradingTestCase(TestCase):
             pass_mark_percentage=Decimal('50.00'),
             max_attempts=2,
             status=Assessment.Status.PUBLISHED,
-            release_results_mode=Assessment.ResultRelease.IMMEDIATE
+            release_results_mode=Assessment.ResultRelease.IMMEDIATE,
+            shuffle_questions=False
         )
 
         # 1. Single Choice
@@ -58,8 +59,8 @@ class ExamAndGradingTestCase(TestCase):
         self.assertIsNotNone(attempt)
         self.assertEqual(attempt.snapshots.count(), 2)
 
-        snap1 = attempt.snapshots.get(order_index=1)
-        snap2 = attempt.snapshots.get(order_index=2)
+        snap1 = attempt.snapshots.get(question=self.q1)
+        snap2 = attempt.snapshots.get(question=self.q2)
 
         # 2. Autosave Question 1 (Select correct option)
         payload1 = {'snapshot_id': snap1.id, 'response_data': {'selected_option_id': self.opt1_corr.id}}

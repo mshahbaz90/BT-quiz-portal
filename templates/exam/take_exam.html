@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ assessment.title }} — Live Assessment Session</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/breakthru-icon.svg">
   <link rel="stylesheet" href="/static/css/portal.css">
   <style>
     body {
@@ -128,24 +129,76 @@
       background: var(--bg-subtle);
     }
     .option-item.selected {
-      border-color: var(--primary);
-      background: var(--primary-light);
-    }
-    [data-theme="dark"] .option-item.selected {
-      background: rgba(2, 132, 199, 0.2);
+      border-color: #a855f7;
+      background: rgba(124, 58, 237, 0.2);
+      box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
     }
     .modal-backdrop {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
+      background: rgba(5, 2, 18, 0.85);
+      backdrop-filter: blur(8px);
       z-index: 100;
       align-items: center;
       justify-content: center;
+      padding: 1rem;
     }
     .modal-backdrop.open {
       display: flex;
+    }
+
+    /* Responsive Mobile Styles */
+    @media (max-width: 900px) {
+      .exam-header {
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .exam-header > div:first-child {
+        flex: 1;
+        min-width: 200px;
+      }
+      .exam-header h1 {
+        font-size: 1rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 240px;
+      }
+      .exam-layout {
+        flex-direction: column;
+      }
+      .exam-main {
+        padding: 1.25rem 1rem 2rem;
+        max-width: 100%;
+      }
+      .exam-sidebar {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border-light);
+        padding: 1.25rem 1rem;
+      }
+      .nav-grid {
+        grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+        gap: 0.4rem;
+      }
+      .nav-btn {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      .timer-pill {
+        font-size: 1rem;
+        padding: 0.35rem 0.85rem;
+      }
+      .option-item {
+        padding: 0.85rem 1rem;
+        min-height: 48px;
+      }
+      #open-submit-modal-btn {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.85rem;
+      }
     }
   </style>
 </head>
@@ -154,7 +207,15 @@
   <!-- Top Bar -->
   <header class="exam-header">
     <div style="display: flex; align-items: center; gap: 1rem;">
-      <div class="brand-logo-icon" style="width: 32px; height: 32px; font-size: 0.95rem;">BT</div>
+      <a href="{% url 'core:dashboard' %}" class="bt-brand-logo" title="BreakThru Dashboard" style="display: flex; align-items: center;" aria-label="BreakThru Dashboard">
+        <svg viewBox="0 0 16 28" width="16" height="24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BreakThru">
+          <path fill="#175DFD" d="M3.55,7.724C1.592,7.724,0,6.102,0,4.109s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,7.724,3.55,7.724z"/>
+          <path fill="#FC86FD" d="M3.55,17.78C1.592,17.78,0,16.158,0,14.165s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,17.78,3.55,17.78z"/>
+          <path fill="#63B3FD" d="M11.875,12.752c-1.957,0-3.55-1.621-3.55-3.615c0-1.993,1.592-3.615,3.55-3.615 c1.957,0,3.549,1.622,3.549,3.615C15.424,11.13,13.832,12.752,11.875,12.752z"/>
+          <path fill="#6C3BF7" d="M3.55,27.836c-1.958,0-3.55-1.622-3.55-3.615s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,27.836,3.55,27.836z"/>
+          <path fill="#C031FD" d="M11.875,22.808c-1.957,0-3.55-1.621-3.55-3.615s1.592-3.615,3.55-3.615c1.957,0,3.549,1.622,3.549,3.615 S13.832,22.808,11.875,22.808z"/>
+        </svg>
+      </a>
       <div>
         <h1 style="font-size: 1.15rem; font-weight: 700;">{{ assessment.title }}</h1>
         <div style="font-size: 0.75rem; color: var(--text-muted);">Candidate: <strong>{{ user.get_full_name|default:user.username }}</strong> &bull; Attempt #{{ attempt.attempt_number }}</div>

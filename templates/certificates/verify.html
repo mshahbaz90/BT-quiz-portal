@@ -3,11 +3,13 @@
 {% block title %}Certificate Verification — {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<div class="auth-header">
-  <div class="brand-logo-icon" style="width: 52px; height: 52px; font-size: 1.5rem; margin: 0 auto 1rem; border-radius: 12px;">BT</div>
-  <h1 style="font-size: 1.5rem; margin-bottom: 0.35rem;">BreakThru Credential Verification</h1>
-  <div class="auth-tagline">{{ COMPANY_TAGLINE }}</div>
-  <p class="auth-subtitle">Official certificate authenticity validation system.</p>
+<div class="auth-header" style="text-align: center; margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: center; margin-bottom: 1.25rem;">
+    {% include "quizzes/_logo.html" %}
+  </div>
+  <h1 style="font-size: 1.5rem; margin-bottom: 0.35rem; color: #ffffff;">Credential Verification</h1>
+  <div class="auth-tagline" style="color: #c7d2fe; font-size: 0.9rem;">Official BreakThru Assessment Certification</div>
+  <p class="auth-subtitle" style="color: #94a3b8; font-size: 0.85rem;">Official certificate authenticity validation system.</p>
 </div>
 
 {% if certificate %}

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Dashboard{% endblock %} — {{ COMPANY_NAME }} Assessments</title>
   <meta name="description" content="BreakThru internal learning and assessment platform.">
+  <link rel="icon" type="image/svg+xml" href="/static/img/breakthru-icon.svg">
   <link rel="stylesheet" href="/static/css/portal.css">
   {% block extra_head %}{% endblock %}
 </head>
@@ -13,10 +14,17 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <a href="{% url 'core:dashboard' %}" class="brand-badge">
-          <div class="brand-logo-icon">BT</div>
-          <span>{{ COMPANY_NAME }}</span>
+        <a href="{% url 'core:dashboard' %}" class="brand-badge" aria-label="BreakThru Dashboard">
+          <svg class="brand-dots-icon" viewBox="0 0 16 28" width="16" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path fill="#175DFD" d="M3.55,7.724C1.592,7.724,0,6.102,0,4.109s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,7.724,3.55,7.724z"/>
+            <path fill="#FC86FD" d="M3.55,17.78C1.592,17.78,0,16.158,0,14.165s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,17.78,3.55,17.78z"/>
+            <path fill="#63B3FD" d="M11.875,12.752c-1.957,0-3.55-1.621-3.55-3.615c0-1.993,1.592-3.615,3.55-3.615 c1.957,0,3.549,1.622,3.549,3.615C15.424,11.13,13.832,12.752,11.875,12.752z"/>
+            <path fill="#6C3BF7" d="M3.55,27.836c-1.958,0-3.55-1.622-3.55-3.615s1.592-3.615,3.55-3.615c1.957,0,3.55,1.622,3.55,3.615 S5.507,27.836,3.55,27.836z"/>
+            <path fill="#C031FD" d="M11.875,22.808c-1.957,0-3.55-1.621-3.55-3.615s1.592-3.615,3.55-3.615c1.957,0,3.549,1.622,3.549,3.615 S13.832,22.808,11.875,22.808z"/>
+          </svg>
+          <span class="brand-title">Break<span class="brand-title-accent">Thru</span></span>
         </a>
+        <button id="sidebar-close-btn" class="sidebar-close-btn" aria-label="Close Navigation">&times;</button>
       </div>
 
       <nav class="sidebar-nav">
@@ -92,13 +100,15 @@
         </div>
       </div>
     </aside>
+    <!-- Mobile Navigation Drawer Backdrop -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
     <!-- Main Wrapper -->
     <div class="main-wrapper">
       <!-- Topbar Header -->
       <header class="topbar">
         <div style="display: flex; align-items: center; gap: 1rem;">
-          <button id="sidebar-toggle-btn" class="btn btn-outline btn-sm" aria-label="Toggle Navigation" style="display: none;">☰</button>
+          <button id="sidebar-toggle-btn" class="btn btn-outline btn-sm" aria-label="Toggle Navigation">☰</button>
           <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: 500;">
             {% block breadcrumb %}BreakThru Assessments{% endblock %}
           </div>

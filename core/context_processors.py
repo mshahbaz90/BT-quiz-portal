@@ -12,7 +12,8 @@ def branding_context(request):
         'COMPANY_NAME': os.getenv('COMPANY_NAME', 'BreakThru'),
         'COMPANY_TAGLINE': os.getenv('COMPANY_TAGLINE', 'Learn. Prove It. BreakThru.'),
         'COMPANY_DOMAIN': os.getenv('COMPANY_DOMAIN', 'breakthru.pk'),
-        'PORTAL_URL': os.getenv('PORTAL_URL', 'https://assessments.breakthru.pk'),
+        'PORTAL_URL': os.getenv('PORTAL_URL', 'https://bt.assesment.pk'),
+        'PORTAL_ALT_URL': os.getenv('PORTAL_ALT_URL', 'https://breakthru.assesment.portal'),
         'UNREAD_NOTIFICATIONS_COUNT': unread_count,
         'CURRENT_YEAR': 2026,
     }

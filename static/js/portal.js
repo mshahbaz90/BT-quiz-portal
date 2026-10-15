@@ -1,38 +1,70 @@
 // BreakThru Portal Core Client JS
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Theme Switcher Logic
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  // Theme Switcher Logic (supports both #theme-toggle-btn and #themeToggle)
+  const themeToggleBtns = document.querySelectorAll('#theme-toggle-btn, #themeToggle, .theme-toggle');
   const storedTheme = localStorage.getItem('breakthru-theme') || 
                       (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   
   document.documentElement.setAttribute('data-theme', storedTheme);
 
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const target = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', target);
-      localStorage.setItem('breakthru-theme', target);
-      updateThemeIcon(target);
-    });
-    updateThemeIcon(storedTheme);
+  function applyTheme(target) {
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('breakthru-theme', target);
+    updateThemeDisplays(target);
   }
 
-  function updateThemeIcon(theme) {
+  function updateThemeDisplays(theme) {
     const icon = document.getElementById('theme-icon');
     if (icon) {
       icon.textContent = theme === 'dark' ? '☀️' : '🌙';
     }
+    const btToggle = document.getElementById('themeToggle');
+    if (btToggle) {
+      btToggle.innerHTML = theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
+    }
   }
 
-  // Mobile Sidebar Toggle
-  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
-  const sidebar = document.querySelector('.sidebar');
-  if (sidebarToggleBtn && sidebar) {
-    sidebarToggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
+  themeToggleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const target = current === 'dark' ? 'light' : 'dark';
+      applyTheme(target);
     });
+  });
+
+  updateThemeDisplays(storedTheme);
+
+  // Mobile Navigation Drawer Toggle & Backdrop
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+  const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  const sidebar = document.querySelector('.sidebar');
+
+  function openSidebar() {
+    if (sidebar) sidebar.classList.add('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.add('active');
+  }
+
+  function closeSidebar() {
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+  }
+
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener('click', () => {
+      if (sidebar && sidebar.classList.contains('open')) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    });
+  }
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener('click', closeSidebar);
+  }
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', closeSidebar);
   }
 
   // Password Visibility Toggle

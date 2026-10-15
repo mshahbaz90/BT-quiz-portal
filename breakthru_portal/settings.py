@@ -14,9 +14,52 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'breakthru-secret-dev-replace-in-production
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
-if 'testserver' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('testserver')
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv(
+        'ALLOWED_HOSTS',
+        'breakthru.assesment.portal,breakthru.assessment.portal,bt.assesment.pk,bt.assessment.pk,assessment.breakthru.pk,assessments.breakthru.pk,localhost,127.0.0.1,0.0.0.0'
+    ).split(',') if h.strip()
+]
+for domain in ['.breakthru.pk', '.assesment.portal', '.assessment.portal', '.assesment.pk', '.assessment.pk', '.onrender.com', 'testserver']:
+    if domain not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(domain)
+if DEBUG and '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('*')
+
+# Production Reverse Proxy & SSL Configuration
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# CSRF Trusted Origins for Domain & Cloud Access
+CSRF_TRUSTED_ORIGINS = [
+    'https://breakthru.assesment.portal',
+    'http://breakthru.assesment.portal',
+    'https://breakthru.assessment.portal',
+    'http://breakthru.assessment.portal',
+    'https://bt.assesment.pk',
+    'http://bt.assesment.pk',
+    'https://bt.assessment.pk',
+    'http://bt.assessment.pk',
+    'https://assessment.breakthru.pk',
+    'https://assessments.breakthru.pk',
+    'http://assessment.breakthru.pk',
+    'http://assessments.breakthru.pk',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://192.168.18.78:8000',
+    'http://10.0.2.84:8000',
+    'https://*.pinggy.link',
+    'https://*.lhr.life',
+    'https://*.trycloudflare.com',
+    'https://*.ngrok-free.app',
+    'https://*.onrender.com',
+]
+extra_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if extra_origins:
+    for origin in extra_origins.split(','):
+        if origin.strip() and origin.strip() not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin.strip())
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
@@ -28,6 +71,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
 
     # BreakThru Assessments Suite
@@ -42,6 +86,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -84,6 +129,7 @@ if DATABASE_URL.startswith('sqlite:'):
             'NAME': BASE_DIR / 'db.sqlite3',
             'OPTIONS': {
                 'timeout': 60,
+                'init_command': 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;',
             }
         }
     }
@@ -99,6 +145,7 @@ elif DATABASE_URL.startswith('postgres:') or DATABASE_URL.startswith('postgresql
             'PASSWORD': url.password,
             'HOST': url.hostname,
             'PORT': url.port or '5432',
+            'CONN_MAX_AGE': 600,
         }
     }
 else:
@@ -106,6 +153,10 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 60,
+                'init_command': 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;',
+            }
         }
     }
 
@@ -137,6 +188,15 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage" if not DEBUG else "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 # Media uploads
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -150,6 +210,15 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '28800'))  # 8 hours
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = os.getenv('SESSION_EXPIRE_AT_BROWSER_CLOSE', 'False').lower() == 'true'
+
+# Production Security Controls
+if not DEBUG:
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1')
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() in ('true', '1')
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').lower() in ('true', '1')
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

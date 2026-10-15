@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ COMPANY_NAME }} Assessments{% endblock %}</title>
   <meta name="description" content="BreakThru internal learning and assessment platform.">
+  <link rel="icon" type="image/svg+xml" href="/static/img/breakthru-icon.svg">
   <link rel="stylesheet" href="/static/css/portal.css">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="auth-page">
+<body class="auth-page {% block body_class %}{% endblock %}">
+  {% block nav %}{% endblock %}
+
+  {% block body %}
   <main class="auth-card" id="main-content">
     {% if messages %}
       <div class="messages-container" style="margin-bottom: 1.5rem;">
@@ -26,6 +30,7 @@
       &copy; {{ CURRENT_YEAR }} {{ COMPANY_NAME }}. Internal Use Only.
     </footer>
   </main>
+  {% endblock %}
 
   <script src="/static/js/portal.js"></script>
   {% block extra_js %}{% endblock %}

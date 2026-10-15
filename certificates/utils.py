@@ -1,4 +1,5 @@
 import io
+import os
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -116,7 +117,8 @@ def generate_certificate_pdf(certificate: Certificate) -> io.BytesIO:
     # Signatures & Verification Details Table
     date_str = certificate.issued_at.strftime('%B %d, %Y')
     cert_code = certificate.certificate_code
-    verify_url = f"https://assessments.breakthru.pk/certificates/verify/{certificate.certificate_id}/"
+    portal_base = os.getenv('PORTAL_URL', 'https://bt.assesment.pk').rstrip('/')
+    verify_url = f"{portal_base}/certificates/verify/{certificate.certificate_id}/"
 
     footer_data = [
         [
