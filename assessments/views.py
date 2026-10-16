@@ -943,6 +943,9 @@ def assessment_link_toggle_view(request, link_id):
         status_str = "Activated" if link.is_active else "Paused"
         messages.success(request, f"Assessment link '{link.name}' is now {status_str}.")
 
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
     return redirect('assessments:link_detail', link_id=link.id)
 
 

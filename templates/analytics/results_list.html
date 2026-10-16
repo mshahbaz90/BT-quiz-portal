@@ -117,7 +117,7 @@
             <div style="font-weight: 600; color: var(--text-main);">{{ att.user.get_full_name|default:att.user.username }}</div>
             <div style="font-size: 0.78rem; color: var(--text-muted);">
               {% if att.user.employee_id %}<span style="font-family: var(--font-mono);">{{ att.user.employee_id }}</span> &bull; {% endif %}
-              {{ att.user.department.name|default:"General" }}
+              {{ att.display_department|default:"General" }}
             </div>
           </td>
           <td>

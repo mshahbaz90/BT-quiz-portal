@@ -15,7 +15,7 @@
           {% if attempt.user.employee_id %}({{ attempt.user.employee_id }}){% endif %}
         </span>
         <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">
-          {{ attempt.user.department.name|default:"General" }}
+          {{ attempt.display_department|default:"General" }}
         </span>
       </div>
       <a href="{% url 'analytics:results_list' %}" class="btn btn-sm btn-outline">&larr; Back to Results</a>

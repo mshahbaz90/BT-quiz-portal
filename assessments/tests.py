@@ -229,6 +229,25 @@ class AssessmentsTestCase(TestCase):
         self.assertEqual(attempt.assessment, assessment)
         self.assertEqual(attempt.total_questions, 1)
 
+        # Verify trainer can view link stats/results dashboard without VariableDoesNotExist
+        resp_stats = self.client.get(reverse('assessments:link_detail', kwargs={'link_id': link.id}))
+        self.assertEqual(resp_stats.status_code, 200)
+        self.assertContains(resp_stats, 'Alice Candidate')
+
+        # Candidate 2 with employee_id but no department
+        guest_client2 = Client()
+        resp_bob = guest_client2.post(f'/links/{link.link_code}/', {
+            'name': 'Bob Candidate',
+            'email': 'bob@breakthru.com',
+            'employee_id': 'CAND-002',
+            'department': '',
+            'access_code': 'PIN1234',
+        })
+        self.assertEqual(resp_bob.status_code, 302)
+        resp_stats2 = self.client.get(reverse('assessments:link_detail', kwargs={'link_id': link.id}))
+        self.assertEqual(resp_stats2.status_code, 200)
+        self.assertContains(resp_stats2, 'Bob Candidate')
+
         # 8. Pause link and verify unavailable notice
         self.client.post(reverse('assessments:link_toggle', kwargs={'link_id': link.id}))
         link.refresh_from_db()

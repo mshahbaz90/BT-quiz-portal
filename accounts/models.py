@@ -75,6 +75,11 @@ class User(AbstractUser):
         return f"{self.get_full_name() or self.username}{emp_tag}"
 
     @property
+    def department_name(self):
+        return self.department.name if self.department else ''
+
+
+    @property
     def is_super_admin(self):
         return self.role == Role.SUPER_ADMIN or self.is_superuser
 

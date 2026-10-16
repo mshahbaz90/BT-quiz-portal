@@ -167,7 +167,7 @@
               <div style="font-size: 0.75rem; color: var(--text-muted);">{{ att.user.employee_id|default:"" }}</div>
             </td>
             <td>{{ att.assessment.code }} - {{ att.assessment.title|truncatechars:30 }}</td>
-            <td>{{ att.user.department.name|default:"—" }}</td>
+            <td>{{ att.display_department|default:"—" }}</td>
             <td>
               {% if att.percentage is not None %}
                 <strong>{{ att.percentage }}%</strong> ({{ att.earned_marks }}/{{ att.max_possible_marks }})

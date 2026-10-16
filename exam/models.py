@@ -61,6 +61,29 @@ class AssessmentAttempt(models.Model):
         diff = (self.deadline_at - timezone.now()).total_seconds()
         return max(0, int(diff))
 
+    @property
+    def display_name(self):
+        return self.participant_name or self.user.get_full_name() or self.user.username
+
+    @property
+    def display_email(self):
+        return self.participant_email or self.user.email
+
+    @property
+    def display_employee_id(self):
+        return self.participant_employee_id or getattr(self.user, 'employee_id', None) or ''
+
+    @property
+    def display_department(self):
+        if self.participant_department:
+            return self.participant_department
+        dept = getattr(self.user, 'department', None)
+        return dept.name if dept else ''
+
+    @property
+    def total_score(self):
+        return self.earned_marks if self.earned_marks is not None else 0
+
 
 class AttemptQuestionSnapshot(models.Model):
     attempt = models.ForeignKey(AssessmentAttempt, on_delete=models.CASCADE, related_name='snapshots')
