@@ -43,6 +43,34 @@ ALLOWED_CSS_PROPERTIES = {
 SAFE_SCHEMES = {'http', 'https', 'mailto', 'tel'}
 
 
+def parse_color_rgb(val):
+    """Parse color string into (r, g, b) integer tuple or None."""
+    if not val:
+        return None
+    v = val.strip().lower().replace(' ', '')
+    if v in {'black', '#000', '#000000'}:
+        return (0, 0, 0)
+    if v in {'white', '#fff', '#ffffff'}:
+        return (255, 255, 255)
+
+    # 6-digit hex
+    m6 = re.match(r'^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$', v)
+    if m6:
+        return (int(m6.group(1), 16), int(m6.group(2), 16), int(m6.group(3), 16))
+
+    # 3-digit hex
+    m3 = re.match(r'^#([0-9a-f])([0-9a-f])([0-9a-f])$', v)
+    if m3:
+        return (int(m3.group(1) * 2, 16), int(m3.group(2) * 2, 16), int(m3.group(3) * 2, 16))
+
+    # rgb/rgba
+    mrgb = re.match(r'^rgba?\((\d+),(\d+),(\d+)', v)
+    if mrgb:
+        return (int(mrgb.group(1)), int(mrgb.group(2)), int(mrgb.group(3)))
+
+    return None
+
+
 def is_black_or_dark_color(val):
     """
     Returns True if a CSS color value represents black or dark-gray
@@ -56,12 +84,33 @@ def is_black_or_dark_color(val):
         '#050212', '#0c0722', '#110a2f', '#12092c', '#160e38', '#1f2937', '#374151'
     }:
         return True
-    if re.match(r'^#[0-3][0-9a-f]{2}$', v) or re.match(r'^#[0-3][0-9a-f][0-3][0-9a-f][0-3][0-9a-f]$', v):
+    rgb = parse_color_rgb(val)
+    if rgb:
+        r, g, b = rgb
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        saturation = max(r, g, b) - min(r, g, b)
+        if lum < 35 or (lum < 55 and saturation < 30):
+            return True
+    return False
+
+
+def is_white_or_light_color(val):
+    """
+    Returns True if a CSS color value represents white or near-white
+    that would be unreadable on a light theme background.
+    """
+    v = val.strip().lower().replace(' ', '')
+    if v in {
+        'white', '#fff', '#ffffff', '#fafafa', '#f8fafc', '#f1f5f9',
+        'rgb(255,255,255)', 'rgba(255,255,255,1)', 'rgba(255,255,255,1.0)'
+    }:
         return True
-    m = re.match(r'^rgba?\((\d+),(\d+),(\d+)', v)
-    if m:
-        r, g, b = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        if r < 75 and g < 75 and b < 75:
+    rgb = parse_color_rgb(val)
+    if rgb:
+        r, g, b = rgb
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        saturation = max(r, g, b) - min(r, g, b)
+        if lum > 240 or (lum > 225 and saturation < 25):
             return True
     return False
 
@@ -98,8 +147,8 @@ def clean_css_style(style_value):
         if prop in ALLOWED_CSS_PROPERTIES:
             # Check value safety (only allow basic alphanumeric, colors, units)
             if re.match(r'^[#a-zA-Z0-9\s.,%()_\-]+$', val):
-                # Omit black/dark text colors so text adapts to theme (white in dark mode, dark in light mode)
-                if prop == 'color' and is_black_or_dark_color(val):
+                # Omit black/dark and white/light text colors so text adapts to theme (white in dark mode, dark in light mode)
+                if prop == 'color' and (is_black_or_dark_color(val) or is_white_or_light_color(val)):
                     continue
                 # Omit white/transparent pasted background colors
                 if prop == 'background-color' and is_white_or_light_bg(val):
@@ -142,8 +191,8 @@ class SafeHTMLSanitizer(HTMLParser):
                 if safe_style:
                     cleaned_attrs.append(('style', safe_style))
             elif attr_lower == 'class':
-                # Strip Quill black color classes
-                c_val = re.sub(r'\bql-color-black\b', '', val).strip()
+                # Strip Quill black/white color classes so text adapts to active theme
+                c_val = re.sub(r'\b(ql-color-black|ql-color-white)\b', '', val).strip()
                 if c_val:
                     cleaned_attrs.append(('class', c_val))
             else:

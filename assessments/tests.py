@@ -532,6 +532,39 @@ class AssessmentsTestCase(TestCase):
         self.assertIn("#ef4444", cleaned)
         self.assertIn("Important Warning in Red", cleaned)
 
+    def test_sanitizer_theme_aware_preservation_and_white_stripping(self):
+        from core.sanitizer import sanitize_rich_text
+        raw_html = (
+            '<p style="color: #ffffff; background-color: #050212;">White text on dark bg</p>'
+            '<p><span class="ql-color-white">Quill white class text</span></p>'
+            '<p><span style="color: rgb(255, 255, 255);">RGB white text</span></p>'
+            '<p><span style="color: #10b981; font-weight: bold;">Emerald Success</span></p>'
+            '<p><span style="color: #3b82f6;">Vivid Blue</span></p>'
+            '<p><span style="color: #7c3aed;">Brand Purple</span></p>'
+            '<p><span style="color: #f59e0b;">Amber Notice</span></p>'
+        )
+        cleaned = sanitize_rich_text(raw_html)
+
+        # White colors should be stripped so text doesn't become invisible in light mode
+        self.assertNotIn("color: #ffffff", cleaned)
+        self.assertNotIn("ql-color-white", cleaned)
+        self.assertNotIn("color: rgb(255, 255, 255)", cleaned)
+
+        # Text content must be preserved
+        self.assertIn("White text on dark bg", cleaned)
+        self.assertIn("Quill white class text", cleaned)
+
+        # All intentional custom chromatic colors MUST be preserved
+        self.assertIn("#10b981", cleaned)
+        self.assertIn("Emerald Success", cleaned)
+        self.assertIn("#3b82f6", cleaned)
+        self.assertIn("Vivid Blue", cleaned)
+        self.assertIn("#7c3aed", cleaned)
+        self.assertIn("Brand Purple", cleaned)
+        self.assertIn("#f59e0b", cleaned)
+        self.assertIn("Amber Notice", cleaned)
+
+
 
 
 

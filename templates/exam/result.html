@@ -166,7 +166,7 @@
             </div>
 
             <!-- Candidate Response Display -->
-            <div style="background: rgba(5, 2, 18, 0.4); border: 1px solid var(--border-light); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; font-size: 0.88rem;">
+            <div class="result-answer-box">
               <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Candidate's Submitted Answer:</div>
               <div style="color: var(--text-main); font-weight: 500;">
                 {% if snap.response.text_response %}
@@ -182,13 +182,13 @@
             </div>
 
             {% if snap.explanation %}
-              <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.2); padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; color: #c4b5fd;">
+              <div class="result-explanation-box">
                 💡 <strong>Explanation / Solution Key:</strong> {{ snap.explanation }}
               </div>
             {% endif %}
 
             {% if snap.response.feedback %}
-              <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; color: #93c5fd; margin-top: 0.5rem;">
+              <div class="result-feedback-box">
                 ✍️ <strong>Grader Feedback:</strong> {{ snap.response.feedback }}
               </div>
             {% endif %}

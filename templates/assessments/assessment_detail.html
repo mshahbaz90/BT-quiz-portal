@@ -472,6 +472,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentEditingQuestionId = null;
 
+  // Curated theme-safe colors that maintain contrast across both Light and Dark themes
+  const THEME_SAFE_COLORS = [
+    false,      // Auto / Theme Default (resets color so text adapts to active theme!)
+    '#7c3aed',  // Brand Purple
+    '#3b82f6',  // Vivid Blue
+    '#06b6d4',  // Cyan / Teal
+    '#10b981',  // Emerald Green
+    '#f59e0b',  // Amber
+    '#ef4444',  // Red Alert
+    '#ec4899',  // Pink
+    '#8b5cf6',  // Violet
+    '#6366f1',  // Indigo
+    '#14b8a6',  // Teal
+    '#84cc16',  // Lime
+    '#f97316',  // Orange
+    '#e11d48',  // Rose
+    '#64748b',  // Slate Gray
+    '#94a3b8'   // Light Slate
+  ];
+
+  const THEME_SAFE_BG_COLORS = [
+    false,
+    'rgba(124, 58, 237, 0.2)',
+    'rgba(59, 130, 246, 0.2)',
+    'rgba(16, 185, 129, 0.2)',
+    'rgba(245, 158, 11, 0.2)',
+    'rgba(239, 68, 68, 0.2)',
+    'rgba(236, 72, 153, 0.2)'
+  ];
+
   // Initialize Quill Editor with full rich-text toolbar
   const quill = new Quill('#modal-quill-editor', {
     theme: 'snow',
@@ -480,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
       toolbar: [
         [{ 'header': [1, 2, 3, false] }],
         ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
+        [{ 'color': THEME_SAFE_COLORS }, { 'background': THEME_SAFE_BG_COLORS }],
         [{ 'script': 'sub'}, { 'script': 'super' }],
         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
         [{ 'indent': '-1'}, { 'indent': '+1' }],
@@ -491,14 +521,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Strip pasted black colors and white backgrounds so text naturally adapts to dark mode
+  // Strip pasted black/white colors and white backgrounds so text naturally adapts to active theme
   if (quill.clipboard && typeof quill.clipboard.addMatcher === 'function') {
     quill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
       delta.forEach(op => {
         if (op.attributes) {
           if (op.attributes.color) {
             const c = String(op.attributes.color).toLowerCase().replace(/\s/g, '');
-            if (c === '#000000' || c === '#000' || c === 'black' || c.startsWith('rgb(0,0,0)')) {
+            if (c === '#000000' || c === '#000' || c === 'black' || c.startsWith('rgb(0,0,0)') ||
+                c === '#ffffff' || c === '#fff' || c === 'white' || c.startsWith('rgb(255,255,255)')) {
               delete op.attributes.color;
             }
           }

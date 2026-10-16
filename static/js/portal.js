@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.setAttribute('data-theme', target);
     localStorage.setItem('breakthru-theme', target);
     updateThemeDisplays(target);
+    window.dispatchEvent(new CustomEvent('breakthru:themechange', { detail: { theme: target } }));
   }
 
   function updateThemeDisplays(theme) {
