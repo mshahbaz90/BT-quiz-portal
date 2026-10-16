@@ -78,22 +78,31 @@
           <button type="button" class="btn btn-secondary btn-sm" id="add-option-btn">+ Add Choice</button>
         </div>
         <div id="option-rows" style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
-            <input type="checkbox" name="is_correct[]" value="0" title="Mark as correct answer">
-            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 1" style="flex: 1;">
-          </div>
-          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
-            <input type="checkbox" name="is_correct[]" value="1" title="Mark as correct answer">
-            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 2" style="flex: 1;">
-          </div>
-          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
-            <input type="checkbox" name="is_correct[]" value="2" title="Mark as correct answer">
-            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 3" style="flex: 1;">
-          </div>
-          <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
-            <input type="checkbox" name="is_correct[]" value="3" title="Mark as correct answer">
-            <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 4" style="flex: 1;">
-          </div>
+          {% if existing_options %}
+            {% for opt in existing_options %}
+              <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+                <input type="checkbox" name="is_correct[]" value="{{ forloop.counter0 }}" {% if opt.is_correct %}checked{% endif %} title="Mark as correct answer">
+                <input type="text" name="option_text[]" class="form-input" value="{{ opt.option_text }}" placeholder="Option choice {{ forloop.counter }}" style="flex: 1;">
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="checkbox" name="is_correct[]" value="0" title="Mark as correct answer">
+              <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 1" style="flex: 1;">
+            </div>
+            <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="checkbox" name="is_correct[]" value="1" title="Mark as correct answer">
+              <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 2" style="flex: 1;">
+            </div>
+            <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="checkbox" name="is_correct[]" value="2" title="Mark as correct answer">
+              <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 3" style="flex: 1;">
+            </div>
+            <div class="option-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="checkbox" name="is_correct[]" value="3" title="Mark as correct answer">
+              <input type="text" name="option_text[]" class="form-input" placeholder="Option choice 4" style="flex: 1;">
+            </div>
+          {% endif %}
         </div>
       </div>
 
@@ -102,11 +111,11 @@
         <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Correct Response</h3>
         <div style="display: flex; gap: 2rem;">
           <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <input type="radio" name="binary_correct" value="true" checked>
+            <input type="radio" name="binary_correct" value="true" {% if binary_correct == 'true' %}checked{% endif %}>
             <span>True / Yes</span>
           </label>
           <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <input type="radio" name="binary_correct" value="false">
+            <input type="radio" name="binary_correct" value="false" {% if binary_correct == 'false' %}checked{% endif %}>
             <span>False / No</span>
           </label>
         </div>
@@ -138,14 +147,54 @@
       <div id="matching-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
         <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Matching Pairs</h3>
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <div style="display: flex; gap: 1rem;">
-            <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. CPU)" style="flex: 1;">
-            <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Central Processing Unit)" style="flex: 1;">
-          </div>
-          <div style="display: flex; gap: 1rem;">
-            <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. RAM)" style="flex: 1;">
-            <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Random Access Memory)" style="flex: 1;">
-          </div>
+          {% if question and question.question_type == 'MATCHING' and existing_options %}
+            {% for opt in existing_options %}
+              <div style="display: flex; gap: 1rem;">
+                <input type="text" name="match_prompt[]" class="form-input" value="{{ opt.option_text }}" placeholder="Prompt item" style="flex: 1;">
+                <input type="text" name="match_target[]" class="form-input" value="{{ opt.match_target }}" placeholder="Matches target" style="flex: 1;">
+              </div>
+            {% endfor %}
+          {% else %}
+            <div style="display: flex; gap: 1rem;">
+              <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. CPU)" style="flex: 1;">
+              <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Central Processing Unit)" style="flex: 1;">
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <input type="text" name="match_prompt[]" class="form-input" placeholder="Prompt item (e.g. RAM)" style="flex: 1;">
+              <input type="text" name="match_target[]" class="form-input" placeholder="Matches target (e.g. Random Access Memory)" style="flex: 1;">
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 6. Ordering Container -->
+      <div id="ordering-container" class="card" style="background: var(--bg-subtle); padding: 1.25rem; margin-bottom: 1.5rem; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="font-size: 1rem;">Correct Sequence Order (1, 2, 3...)</h3>
+          <button type="button" class="btn btn-secondary btn-sm" id="add-order-btn">+ Add Step</button>
+        </div>
+        <div id="ordering-rows" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          {% if question and question.question_type == 'ORDERING' and existing_options %}
+            {% for opt in existing_options %}
+              <div class="ordering-row" style="display: flex; gap: 0.75rem; align-items: center;">
+                <span style="font-family: var(--font-mono); font-size: 0.85rem; color: #a78bfa;">{{ forloop.counter }}.</span>
+                <input type="text" name="order_item[]" class="form-input" value="{{ opt.option_text }}" placeholder="Step / Sequence item" style="flex: 1;">
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="ordering-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.85rem; color: #a78bfa;">1.</span>
+              <input type="text" name="order_item[]" class="form-input" placeholder="First step / item" style="flex: 1;">
+            </div>
+            <div class="ordering-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.85rem; color: #a78bfa;">2.</span>
+              <input type="text" name="order_item[]" class="form-input" placeholder="Second step / item" style="flex: 1;">
+            </div>
+            <div class="ordering-row" style="display: flex; gap: 0.75rem; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.85rem; color: #a78bfa;">3.</span>
+              <input type="text" name="order_item[]" class="form-input" placeholder="Third step / item" style="flex: 1;">
+            </div>
+          {% endif %}
         </div>
       </div>
 
@@ -163,7 +212,7 @@
 
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
         <a href="{% url 'assessments:question_bank' %}" class="btn btn-outline">Cancel</a>
-        <button type="submit" class="btn btn-primary btn-lg">Save Question to Bank</button>
+        <button type="submit" class="btn btn-primary btn-lg">{% if is_edit %}💾 Save Changes{% else %}Save Question to Bank{% endif %}</button>
       </div>
     </form>
   </div>
@@ -221,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shortBox = document.getElementById('short-answer-container');
   const numBox = document.getElementById('numeric-container');
   const matchBox = document.getElementById('matching-container');
+  const orderBox = document.getElementById('ordering-container');
 
   function updateTypeView() {
     const val = typeSelect.value;
@@ -229,6 +279,26 @@ document.addEventListener('DOMContentLoaded', () => {
     shortBox.style.display = (val === 'SHORT_ANSWER' || val === 'FILL_BLANK') ? 'block' : 'none';
     numBox.style.display = (val === 'NUMERIC') ? 'block' : 'none';
     matchBox.style.display = (val === 'MATCHING') ? 'block' : 'none';
+    if (orderBox) orderBox.style.display = (val === 'ORDERING') ? 'block' : 'none';
+  }
+
+  typeSelect.addEventListener('change', updateTypeView);
+  updateTypeView();
+
+  const addOrderBtn = document.getElementById('add-order-btn');
+  const orderRows = document.getElementById('ordering-rows');
+  if (addOrderBtn && orderRows) {
+    addOrderBtn.addEventListener('click', () => {
+      const count = orderRows.querySelectorAll('.ordering-row').length;
+      const row = document.createElement('div');
+      row.className = 'ordering-row';
+      row.style.cssText = 'display: flex; gap: 0.75rem; align-items: center;';
+      row.innerHTML = `
+        <span style="font-family: var(--font-mono); font-size: 0.85rem; color: #a78bfa;">${count + 1}.</span>
+        <input type="text" name="order_item[]" class="form-input" placeholder="Step ${count + 1}" style="flex: 1;">
+      `;
+      orderRows.appendChild(row);
+    });
   }
 
   typeSelect.addEventListener('change', updateTypeView);

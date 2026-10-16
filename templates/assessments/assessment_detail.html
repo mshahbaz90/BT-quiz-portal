@@ -170,10 +170,13 @@
                 <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ aq.question.get_question_type_display }}</span>
                 <span style="font-size: 0.8rem; font-weight: 600; color: #a78bfa;">{{ aq.effective_marks }} Marks</span>
               </div>
-              <form method="POST" action="{% url 'assessments:assessment_remove_question' assessment.id aq.question.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
-              </form>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary btn-sm btn-edit-aq" data-question-id="{{ aq.question.id }}" style="font-size: 0.75rem; padding: 2px 8px;">✏️ Edit</button>
+                <form method="POST" action="{% url 'assessments:assessment_remove_question' assessment.id aq.question.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+                </form>
+              </div>
             </div>
 
             <div class="question-display-body" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">
@@ -240,7 +243,7 @@
   </div>
 </div>
 
-<!-- Modal: Add Question to Assessment & Bank -->
+<!-- Modal: Add / Edit Question in Assessment & Bank -->
 <div id="add-question-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="portal-modal-container">
     <div class="portal-modal-header">
@@ -254,10 +257,28 @@
     </div>
 
     <!-- Modal Form -->
-    <form id="direct-add-question-form" method="POST" action="{% url 'assessments:assessment_create_and_add_question' assessment.id %}">
+    <form id="direct-add-question-form" class="portal-modal-form" method="POST" action="{% url 'assessments:assessment_create_and_add_question' assessment.id %}">
       {% csrf_token %}
       <div class="portal-modal-body">
         <div id="modal-alert" style="display: none; margin-bottom: 1rem;" class="alert"></div>
+
+        <!-- Scope Options (Shown only when editing an existing question) -->
+        <div id="modal-scope-container" style="display: none; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: #93c5fd; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <span>⚙️ Question Update Scope</span>
+            <span id="scope-attached-badge" class="badge badge-info" style="font-size: 0.65rem;"></span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.82rem;">
+            <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; color: var(--text-main);">
+              <input type="radio" name="edit_scope" value="all" checked style="margin-top: 3px;">
+              <span><strong>Update Question Bank question too</strong> &mdash; updates reusable bank question for this and future assessments.</span>
+            </label>
+            <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; color: var(--text-main);">
+              <input type="radio" name="edit_scope" value="this_assessment_only" style="margin-top: 3px;">
+              <span><strong>Update this assessment only</strong> &mdash; creates an assessment-specific copy without altering the reusable bank question or other assessments.</span>
+            </label>
+          </div>
+        </div>
 
         <!-- Question Type & Category -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
@@ -425,9 +446,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelBtn = document.getElementById('modal-cancel-btn');
   const form = document.getElementById('direct-add-question-form');
   const modalAlert = document.getElementById('modal-alert');
+  const modalTitle = document.getElementById('modal-title');
   const saveBtn = document.getElementById('modal-save-btn');
   const saveAnotherBtn = document.getElementById('modal-save-another-btn');
   const toast = document.getElementById('live-save-toast');
+  const scopeContainer = document.getElementById('modal-scope-container');
+  const scopeBadge = document.getElementById('scope-attached-badge');
 
   // Question Type & Option containers
   const typeSelect = document.getElementById('modal-q-type');
@@ -445,6 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewBtn = document.getElementById('btn-toggle-preview');
   const previewBox = document.getElementById('modal-preview-box');
   const previewContent = document.getElementById('modal-preview-content');
+
+  let currentEditingQuestionId = null;
 
   // Initialize Quill Editor with full rich-text toolbar
   const quill = new Quill('#modal-quill-editor', {
@@ -465,36 +491,157 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Modal open & close
-  function openModal() {
-    modal.classList.add('active');
+  function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.innerText = str;
+    return div.innerHTML;
+  }
+
+  // Modal open & close with background scroll lock
+  async function openModal(mode = 'add', questionId = null) {
+    document.body.style.overflow = 'hidden';
     modalAlert.style.display = 'none';
     previewBox.style.display = 'none';
-    quill.focus();
+    previewBtn.innerText = '👁️ Preview Student View';
+
+    if (mode === 'edit' && questionId) {
+      currentEditingQuestionId = questionId;
+      modalTitle.innerText = `✏️ Edit Question #${questionId}`;
+      form.action = `/assessments/{{ assessment.id }}/questions/${questionId}/edit/`;
+      saveBtn.innerText = '💾 Save Changes';
+      saveAnotherBtn.style.display = 'none';
+
+      try {
+        const res = await fetch(`/assessments/questions/${questionId}/data/`);
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load question details.');
+        }
+
+        const q = data.question;
+        quill.root.innerHTML = q.question_text || '';
+        document.getElementById('modal-hidden-question-text').value = q.question_text || '';
+        typeSelect.value = q.type;
+        document.getElementById('modal-q-marks').value = q.default_marks;
+        document.getElementById('modal-q-category').value = q.category_id || '';
+        document.getElementById('modal-q-difficulty').value = q.difficulty || 'MEDIUM';
+        document.getElementById('modal-q-hint').value = q.hint || '';
+        document.getElementById('modal-q-explanation').value = q.explanation || '';
+        document.getElementById('modal-short-accepted').value = q.short_answer_accepted || '';
+        document.getElementById('modal-num-answer').value = q.numeric_answer || '';
+        document.getElementById('modal-num-tolerance').value = q.numeric_tolerance || '0.0000';
+
+        // Scope options setup
+        scopeContainer.style.display = 'block';
+        if (q.attached_assessments_count > 1) {
+          scopeBadge.innerText = `Used in ${q.attached_assessments_count} assessments`;
+        } else {
+          scopeBadge.innerText = 'Single Assessment';
+        }
+        const defaultScopeRadio = document.querySelector('input[name="edit_scope"][value="all"]');
+        if (defaultScopeRadio) defaultScopeRadio.checked = true;
+
+        updateTypeView(false);
+
+        // Populate existing options
+        if (q.type === 'SINGLE_CHOICE' || q.type === 'MULTIPLE_SELECT' || q.type === 'RICH_CONTENT') {
+          choiceRows.innerHTML = '';
+          const isMultiple = (q.type === 'MULTIPLE_SELECT');
+          const inputType = isMultiple ? 'checkbox' : 'radio';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach((opt, idx) => {
+              addChoiceRow(idx, inputType, opt.is_correct, opt.text);
+            });
+          } else {
+            populateDefaultChoices(q.type);
+          }
+        } else if (q.type === 'TRUE_FALSE' || q.type === 'YES_NO') {
+          let isTrue = true;
+          if (q.options && q.options.length > 0) {
+            const correctOpt = q.options.find(o => o.is_correct);
+            if (correctOpt && (correctOpt.text === 'False' || correctOpt.text === 'No')) {
+              isTrue = false;
+            }
+          }
+          const trueRadio = document.querySelector('input[name="binary_correct"][value="true"]');
+          const falseRadio = document.querySelector('input[name="binary_correct"][value="false"]');
+          if (trueRadio && falseRadio) {
+            trueRadio.checked = isTrue;
+            falseRadio.checked = !isTrue;
+          }
+        } else if (q.type === 'MATCHING') {
+          matchingRows.innerHTML = '';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(opt => {
+              addMatchingPair(opt.text, opt.match_target || '');
+            });
+          } else {
+            populateDefaultChoices('MATCHING');
+          }
+        } else if (q.type === 'ORDERING') {
+          orderingRows.innerHTML = '';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(opt => {
+              addOrderingRow(opt.text);
+            });
+          } else {
+            populateDefaultChoices('ORDERING');
+          }
+        }
+
+        modal.classList.add('active');
+        setTimeout(() => quill.focus(), 150);
+
+      } catch (err) {
+        alert(err.message || 'Error loading question details.');
+        document.body.style.overflow = '';
+      }
+
+    } else {
+      // Add mode
+      currentEditingQuestionId = null;
+      modalTitle.innerText = '➕ Add Question';
+      form.action = "{% url 'assessments:assessment_create_and_add_question' assessment.id %}";
+      saveBtn.innerText = '💾 Save & Add to Assessment';
+      saveAnotherBtn.style.display = 'inline-block';
+      scopeContainer.style.display = 'none';
+
+      resetFormForNext();
+      modal.classList.add('active');
+      setTimeout(() => quill.focus(), 150);
+    }
   }
 
   function closeModal() {
     modal.classList.remove('active');
     modalAlert.style.display = 'none';
+    document.body.style.overflow = '';
   }
 
-  if (openModalBtn) openModalBtn.addEventListener('click', openModal);
+  if (openModalBtn) openModalBtn.addEventListener('click', () => openModal('add'));
   if (closeXBtn) closeXBtn.addEventListener('click', closeModal);
   if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+  });
 
-  // Reset form inputs for "Save & Add Another"
+  // Reset form inputs for "Save & Add Another" or new question
   function resetFormForNext() {
     quill.setText('');
     document.getElementById('modal-hidden-question-text').value = '';
     document.getElementById('modal-q-marks').value = '1.00';
     document.getElementById('modal-q-hint').value = '';
     document.getElementById('modal-q-explanation').value = '';
+    document.getElementById('modal-short-accepted').value = '';
+    document.getElementById('modal-num-answer').value = '';
+    document.getElementById('modal-num-tolerance').value = '0.0000';
     previewBox.style.display = 'none';
     modalAlert.style.display = 'none';
-    populateDefaultChoices(typeSelect.value);
+    updateTypeView(true);
     quill.focus();
   }
 
@@ -509,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_SELECT' || type === 'RICH_CONTENT') {
       for (let i = 0; i < 4; i++) {
-        addChoiceRow(i, inputType, i === 0);
+        addChoiceRow(i, inputType, i === 0, '');
       }
     } else if (type === 'MATCHING') {
       addMatchingPair("Prompt A", "Target 1");
@@ -521,13 +668,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function addChoiceRow(index, inputType = 'radio', isChecked = false) {
+  function addChoiceRow(index, inputType = 'radio', isChecked = false, textVal = '') {
     const row = document.createElement('div');
     row.className = 'choice-row';
     row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
     row.innerHTML = `
       <input type="${inputType}" name="is_correct[]" value="${index}" ${isChecked ? 'checked' : ''} title="Mark as correct answer" style="cursor: pointer; width: 18px; height: 18px;">
-      <input type="text" name="option_text[]" class="form-input" placeholder="Option choice ${index + 1}" style="flex: 1;" required>
+      <input type="text" name="option_text[]" class="form-input" placeholder="Option choice ${index + 1}" value="${escapeHtml(textVal)}" style="flex: 1;" required>
       <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px; font-size: 0.75rem;" title="Remove choice">&times;</button>
     `;
     row.querySelector('.remove-row-btn').addEventListener('click', () => {
@@ -554,16 +701,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-add-choice-btn').addEventListener('click', () => {
     const count = choiceRows.querySelectorAll('.choice-row').length;
     const isMultiple = (typeSelect.value === 'MULTIPLE_SELECT');
-    addChoiceRow(count, isMultiple ? 'checkbox' : 'radio', false);
+    addChoiceRow(count, isMultiple ? 'checkbox' : 'radio', false, '');
   });
 
   function addMatchingPair(promptVal = '', targetVal = '') {
     const row = document.createElement('div');
     row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
     row.innerHTML = `
-      <input type="text" name="match_prompt[]" class="form-input" placeholder="Left Prompt" value="${promptVal}" style="flex: 1;" required>
+      <input type="text" name="match_prompt[]" class="form-input" placeholder="Left Prompt" value="${escapeHtml(promptVal)}" style="flex: 1;" required>
       <span style="color: var(--text-muted);">&rarr;</span>
-      <input type="text" name="match_target[]" class="form-input" placeholder="Matches Target" value="${targetVal}" style="flex: 1;" required>
+      <input type="text" name="match_target[]" class="form-input" placeholder="Matches Target" value="${escapeHtml(targetVal)}" style="flex: 1;" required>
       <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px;">&times;</button>
     `;
     row.querySelector('.remove-row-btn').addEventListener('click', () => {
@@ -578,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
     row.innerHTML = `
       <span style="font-family: var(--font-mono); font-size: 0.8rem; color: #a78bfa;">${orderingRows.children.length + 1}.</span>
-      <input type="text" name="order_item[]" class="form-input" placeholder="Step / Sequence Item" value="${val}" style="flex: 1;" required>
+      <input type="text" name="order_item[]" class="form-input" placeholder="Step / Sequence Item" value="${escapeHtml(val)}" style="flex: 1;" required>
       <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px;">&times;</button>
     `;
     row.querySelector('.remove-row-btn').addEventListener('click', () => {
@@ -589,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-add-ordering-btn').addEventListener('click', () => addOrderingRow());
 
   // Type Selector Change
-  function updateTypeView() {
+  function updateTypeView(resetChoices = true) {
     const val = typeSelect.value;
     choiceBox.style.display = (val === 'SINGLE_CHOICE' || val === 'MULTIPLE_SELECT' || val === 'RICH_CONTENT') ? 'block' : 'none';
     binaryBox.style.display = (val === 'TRUE_FALSE' || val === 'YES_NO') ? 'block' : 'none';
@@ -606,11 +753,13 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('binary-label-false').innerText = 'No';
     }
 
-    populateDefaultChoices(val);
+    if (resetChoices) {
+      populateDefaultChoices(val);
+    }
   }
 
-  typeSelect.addEventListener('change', updateTypeView);
-  updateTypeView();
+  typeSelect.addEventListener('change', () => updateTypeView(true));
+  updateTypeView(true);
 
   // Preview Student View Toggle
   previewBtn.addEventListener('click', () => {
@@ -629,8 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle Form Submission (AJAX with Save & Add / Save & Add Another)
+  // Handle Form Submission (AJAX for both Add and Edit)
   async function submitQuestionForm(keepOpenAfterSave = false) {
+    if (saveBtn.disabled) return;
     modalAlert.style.display = 'none';
 
     // Sync Quill HTML
@@ -691,31 +841,37 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(data.error || 'Failed to save question.');
       }
 
-      // Success! Insert newly created question card into the DOM list
-      insertQuestionCard(data.question);
-
-      // Update question count & badges
-      const countSpan = document.getElementById('assessment-q-count');
-      if (countSpan && data.question.total_questions) {
-        countSpan.innerText = data.question.total_questions;
-      }
-
-      // Hide empty placeholder if visible
-      const emptyPlaceholder = document.getElementById('empty-questions-placeholder');
-      if (emptyPlaceholder) emptyPlaceholder.remove();
-
-      // Show toast notification
-      toast.innerText = `✓ ${data.message}`;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 4000);
-
-      if (keepOpenAfterSave) {
-        resetFormForNext();
-        modalAlert.className = 'alert alert-success';
-        modalAlert.innerText = `✓ Saved Question #${data.question.id} to bank and assessment. Ready for next question!`;
-        modalAlert.style.display = 'block';
-      } else {
+      // If we were editing an existing question, update the card in DOM
+      if (currentEditingQuestionId) {
+        updateQuestionCardInDom(data.question, currentEditingQuestionId);
+        toast.innerText = `✓ ${data.message}`;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 4000);
         closeModal();
+      } else {
+        // Success for new question!
+        insertQuestionCard(data.question);
+
+        const countSpan = document.getElementById('assessment-q-count');
+        if (countSpan && data.question.total_questions) {
+          countSpan.innerText = data.question.total_questions;
+        }
+
+        const emptyPlaceholder = document.getElementById('empty-questions-placeholder');
+        if (emptyPlaceholder) emptyPlaceholder.remove();
+
+        toast.innerText = `✓ ${data.message}`;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 4000);
+
+        if (keepOpenAfterSave) {
+          resetFormForNext();
+          modalAlert.className = 'alert alert-success';
+          modalAlert.innerText = `✓ Saved Question #${data.question.id} to bank and assessment. Ready for next question!`;
+          modalAlert.style.display = 'block';
+        } else {
+          closeModal();
+        }
       }
 
     } catch (err) {
@@ -727,6 +883,55 @@ document.addEventListener('DOMContentLoaded', () => {
       saveAnotherBtn.disabled = false;
       saveBtn.innerHTML = originalSaveText;
     }
+  }
+
+  // Update question card in DOM after editing
+  function updateQuestionCardInDom(q, oldId) {
+    const card = document.getElementById(`aq-card-${oldId}`);
+    if (!card) return;
+    card.id = `aq-card-${q.id}`;
+
+    let optionsHtml = '';
+    if (q.options && q.options.length > 0) {
+      const opts = q.options.map(opt => `
+        <div style="display: flex; align-items: center; gap: 0.35rem; color: ${opt.is_correct ? 'var(--success)' : 'var(--text-muted)'};">
+          <span>${opt.is_correct ? '✓' : '•'}</span>
+          <span>${escapeHtml(opt.text)}</span>
+          ${opt.match_target ? ` &rarr; <em>${escapeHtml(opt.match_target)}</em>` : ''}
+        </div>
+      `).join('');
+      optionsHtml = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.85rem; background: rgba(5, 2, 18, 0.4); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light); margin-top: 0.5rem;">
+          ${opts}
+        </div>
+      `;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="badge badge-info" style="font-family: var(--font-mono);">#${q.order}</span>
+          <span class="badge badge-secondary" style="font-size: 0.7rem;">${q.type_display}</span>
+          <span style="font-size: 0.8rem; font-weight: 600; color: #a78bfa;">${q.marks} Marks</span>
+          <span class="badge badge-success" style="font-size: 0.65rem;">Updated</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm btn-edit-aq" data-question-id="${q.id}" style="font-size: 0.75rem; padding: 2px 8px;">✏️ Edit</button>
+          <form method="POST" action="${q.remove_url}">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="question-display-body" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">
+        ${q.text}
+      </div>
+
+      ${optionsHtml}
+    `;
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   // Dynamic DOM insertion of newly created question
@@ -742,8 +947,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const opts = q.options.map(opt => `
         <div style="display: flex; align-items: center; gap: 0.35rem; color: ${opt.is_correct ? 'var(--success)' : 'var(--text-muted)'};">
           <span>${opt.is_correct ? '✓' : '•'}</span>
-          <span>${opt.text}</span>
-          ${opt.match_target ? ` &rarr; <em>${opt.match_target}</em>` : ''}
+          <span>${escapeHtml(opt.text)}</span>
+          ${opt.match_target ? ` &rarr; <em>${escapeHtml(opt.match_target)}</em>` : ''}
         </div>
       `).join('');
       optionsHtml = `
@@ -753,6 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
@@ -761,10 +967,13 @@ document.addEventListener('DOMContentLoaded', () => {
           <span style="font-size: 0.8rem; font-weight: 600; color: #a78bfa;">${q.marks} Marks</span>
           <span class="badge badge-success" style="font-size: 0.65rem;">New</span>
         </div>
-        <form method="POST" action="${q.remove_url}">
-          <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-          <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
-        </form>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm btn-edit-aq" data-question-id="${q.id}" style="font-size: 0.75rem; padding: 2px 8px;">✏️ Edit</button>
+          <form method="POST" action="${q.remove_url}">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+          </form>
+        </div>
       </div>
 
       <div class="question-display-body" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">
@@ -776,6 +985,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.appendChild(card);
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Event delegation for attached question edit buttons
+  const attachedContainer = document.getElementById('attached-questions-container');
+  if (attachedContainer) {
+    attachedContainer.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('.btn-edit-aq');
+      if (editBtn) {
+        const qid = editBtn.dataset.questionId;
+        if (qid) openModal('edit', qid);
+      }
+    });
   }
 
   saveBtn.addEventListener('click', () => submitQuestionForm(false));

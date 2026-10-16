@@ -82,6 +82,15 @@ class QuestionForm(forms.ModelForm):
             'short_answer_accepted': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Pipe-separated answers (e.g. SQL|Structured Query Language)'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for f in [
+            'category', 'rich_content', 'explanation', 'hint', 'tags',
+            'numeric_answer', 'numeric_tolerance', 'short_answer_accepted', 'image'
+        ]:
+            if f in self.fields:
+                self.fields[f].required = False
+
 
 class AssessmentLinkForm(forms.ModelForm):
     class Meta:

@@ -1760,7 +1760,7 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   font-weight: 600;
 }
 
-/* Modal Styling */
+/* Modal Styling & Scroll Fixes */
 .portal-modal-backdrop {
   position: fixed;
   top: 0;
@@ -1777,17 +1777,23 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.25s ease, visibility 0.25s ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
+
 .portal-modal-backdrop.active {
   opacity: 1;
   visibility: visible;
 }
+
 .portal-modal-container {
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg, 12px);
   width: 100%;
   max-width: 900px;
+  height: 90vh;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -1795,10 +1801,22 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   transform: translateY(20px) scale(0.98);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  margin: auto;
 }
+
 .portal-modal-backdrop.active .portal-modal-container {
   transform: translateY(0) scale(1);
 }
+
+.portal-modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Essential for flexbox nested scrollable child */
+  height: 100%;
+  overflow: hidden;
+}
+
 .portal-modal-header {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-light);
@@ -1806,12 +1824,18 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   justify-content: space-between;
   align-items: center;
   background: rgba(124, 58, 237, 0.08);
+  flex-shrink: 0;
 }
+
 .portal-modal-body {
   padding: 1.5rem;
-  overflow-y: auto;
-  flex: 1;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 0; /* Allows body to shrink and scroll properly */
 }
+
 .portal-modal-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-light);
@@ -1821,15 +1845,128 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   background: var(--bg-surface-elevated);
   gap: 0.75rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-/* Quill Editor Dark Theme Styling */
+/* Compact, Professional Rich-Text & Question Typography */
+.portal-rich-content,
+.rich-text-content,
+.question-display-body,
+.question-stem-text {
+  color: var(--text-main);
+  line-height: 1.5;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.portal-rich-content p,
+.rich-text-content p,
+.question-display-body p,
+.question-stem-text p {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.portal-rich-content p:last-child,
+.rich-text-content p:last-child,
+.question-display-body p:last-child,
+.question-stem-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Collapse excessive/empty paragraphs */
+.portal-rich-content p:empty,
+.rich-text-content p:empty,
+.question-display-body p:empty,
+.question-stem-text p:empty,
+.portal-rich-content p > br:only-child,
+.rich-text-content p > br:only-child,
+.question-display-body p > br:only-child,
+.question-stem-text p > br:only-child {
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+
+/* Headings within Rich Content */
+.portal-rich-content h1, .rich-text-content h1, .question-display-body h1, .question-stem-text h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+  line-height: 1.3;
+  color: var(--text-main);
+}
+
+.portal-rich-content h2, .rich-text-content h2, .question-display-body h2, .question-stem-text h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-top: 0.65rem;
+  margin-bottom: 0.3rem;
+  line-height: 1.3;
+  color: var(--text-main);
+}
+
+.portal-rich-content h3, .rich-text-content h3, .question-display-body h3, .question-stem-text h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+  color: #c4b5fd;
+}
+
+/* Lists within Rich Content */
+.portal-rich-content ul, .rich-text-content ul, .question-display-body ul, .question-stem-text ul,
+.portal-rich-content ol, .rich-text-content ol, .question-display-body ol, .question-stem-text ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.portal-rich-content li, .rich-text-content li, .question-display-body li, .question-stem-text li {
+  margin-bottom: 0.2rem;
+  line-height: 1.45;
+}
+
+/* Blockquotes, Code & Tables */
+.portal-rich-content blockquote, .rich-text-content blockquote, .question-display-body blockquote, .question-stem-text blockquote {
+  border-left: 3px solid var(--primary);
+  padding: 0.4rem 0.85rem;
+  margin: 0.4rem 0 0.5rem 0;
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-muted);
+}
+
+.portal-rich-content pre, .rich-text-content pre, .question-display-body pre, .question-stem-text pre {
+  margin: 0.4rem 0 0.5rem 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+
+.portal-rich-content code, .rich-text-content code, .question-display-body code, .question-stem-text code {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  padding: 0.15rem 0.35rem;
+  background: rgba(124, 58, 237, 0.15);
+  border-radius: 4px;
+}
+
+/* Quill Editor Dark Theme & Spacing Styling */
 .ql-toolbar.ql-snow {
   background: var(--bg-subtle) !important;
   border-color: var(--border-light) !important;
   border-top-left-radius: var(--radius-sm, 6px);
   border-top-right-radius: var(--radius-sm, 6px);
 }
+
 .ql-container.ql-snow {
   background: var(--bt-input-bg, #110a2f) !important;
   border-color: var(--border-light) !important;
@@ -1838,37 +1975,75 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   font-size: 0.95rem !important;
   border-bottom-left-radius: var(--radius-sm, 6px);
   border-bottom-right-radius: var(--radius-sm, 6px);
-  min-height: 140px;
+  min-height: 130px;
 }
+
+.ql-editor {
+  line-height: 1.5 !important;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ql-editor p {
+  margin-bottom: 0.5rem !important;
+  line-height: 1.5 !important;
+}
+
+.ql-editor p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.ql-editor h1, .ql-editor h2, .ql-editor h3 {
+  margin-top: 0.6rem !important;
+  margin-bottom: 0.3rem !important;
+  line-height: 1.3 !important;
+}
+
+.ql-editor ul, .ql-editor ol {
+  margin-bottom: 0.5rem !important;
+}
+
+.ql-editor li {
+  margin-bottom: 0.2rem !important;
+  line-height: 1.45 !important;
+}
+
 .ql-snow .ql-stroke {
   stroke: var(--text-muted) !important;
 }
+
 .ql-snow .ql-fill {
   fill: var(--text-muted) !important;
 }
+
 .ql-snow .ql-picker {
   color: var(--text-muted) !important;
 }
+
 .ql-snow .ql-picker-options {
   background-color: var(--bg-surface-elevated) !important;
   border-color: var(--border-light) !important;
 }
+
 .ql-snow.ql-toolbar button:hover .ql-stroke,
 .ql-snow .ql-toolbar button:hover .ql-stroke,
 .ql-snow.ql-toolbar button.ql-active .ql-stroke,
 .ql-snow .ql-toolbar button.ql-active .ql-stroke {
   stroke: var(--primary) !important;
 }
+
 .ql-snow.ql-toolbar button:hover .ql-fill,
 .ql-snow .ql-toolbar button:hover .ql-fill,
 .ql-snow.ql-toolbar button.ql-active .ql-fill,
 .ql-snow .ql-toolbar button.ql-active .ql-fill {
   fill: var(--primary) !important;
 }
+
 .ql-editor.ql-blank::before {
   color: var(--text-muted) !important;
   font-style: normal !important;
   opacity: 0.6;
 }
+
 
 

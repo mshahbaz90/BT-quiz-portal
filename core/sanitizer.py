@@ -171,5 +171,7 @@ def sanitize_rich_text(raw_html, wrap_plain_text=False):
     parser = SafeHTMLSanitizer()
     parser.feed(raw_str)
     sanitized = parser.get_html()
+    # Normalize redundant consecutive empty paragraphs into a single line break
+    sanitized = re.sub(r'(?:<p>\s*(?:<br\s*/?>|&nbsp;|\s)*</p>\s*){2,}', '<p><br/></p>', sanitized)
     return sanitized
 

@@ -364,4 +364,146 @@ class AssessmentsTestCase(TestCase):
         self.assertNotContains(resp, '⚙️ Manage')
         self.assertNotContains(resp, '⚙ Manage')
 
+    def test_question_bank_edit_question(self):
+        q = Question.objects.create(
+            question_text="Initial Bank Question Text",
+            question_type=QuestionType.SINGLE_CHOICE,
+            default_marks=Decimal('1.00'),
+            difficulty='EASY',
+            created_by=self.trainer
+        )
+        QuestionOption.objects.create(question=q, option_text="Initial A", is_correct=True, display_order=1)
+        QuestionOption.objects.create(question=q, option_text="Initial B", is_correct=False, display_order=2)
+
+        edit_url = reverse('assessments:question_edit', kwargs={'question_id': q.id})
+        # GET form
+        resp_get = self.client.get(edit_url)
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, 'Initial Bank Question Text')
+
+        # POST updates
+        resp_post = self.client.post(edit_url, {
+            'question_type': QuestionType.SINGLE_CHOICE,
+            'question_text': '<p>Updated Bank Question Text with <strong>formatting</strong></p>',
+            'default_marks': '3.00',
+            'difficulty': 'HARD',
+            'hint': 'Updated hint',
+            'explanation': 'Updated explanation',
+            'option_text[]': ['Updated Option 1', 'Updated Option 2', 'Updated Option 3'],
+            'is_correct[]': ['1'],  # Option 2 is correct
+        })
+        self.assertEqual(resp_post.status_code, 302)
+
+        q.refresh_from_db()
+        self.assertIn('Updated Bank Question Text', q.question_text)
+        self.assertEqual(q.default_marks, Decimal('3.00'))
+        self.assertEqual(q.difficulty, 'HARD')
+        self.assertEqual(q.hint, 'Updated hint')
+        self.assertEqual(q.options.count(), 3)
+        self.assertTrue(q.options.get(option_text='Updated Option 2').is_correct)
+        self.assertFalse(q.options.get(option_text='Updated Option 1').is_correct)
+
+    def test_question_data_json_view(self):
+        q = Question.objects.create(
+            question_text="JSON Data View Test",
+            question_type=QuestionType.SINGLE_CHOICE,
+            default_marks=Decimal('2.50'),
+            created_by=self.trainer
+        )
+        QuestionOption.objects.create(question=q, option_text="Alpha", is_correct=True, display_order=1)
+        QuestionOption.objects.create(question=q, option_text="Beta", is_correct=False, display_order=2)
+
+        data_url = reverse('assessments:question_data_json', kwargs={'question_id': q.id})
+        resp = self.client.get(data_url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['question']['id'], q.id)
+        self.assertEqual(data['question']['default_marks'], '2.50')
+        self.assertEqual(len(data['question']['options']), 2)
+
+    def test_assessment_edit_question_update_all_scope(self):
+        assessment = Assessment.objects.create(
+            title='Scope All Test',
+            code='BT-SCOPE-01',
+            status=Assessment.Status.DRAFT,
+            created_by=self.trainer
+        )
+        q = Question.objects.create(
+            question_text="Original Text Before Edit",
+            question_type=QuestionType.SINGLE_CHOICE,
+            default_marks=Decimal('1.00'),
+            created_by=self.trainer
+        )
+        aq = AssessmentQuestion.objects.create(assessment=assessment, question=q, order=1, marks_override=Decimal('1.00'))
+
+        edit_url = reverse('assessments:assessment_edit_question', kwargs={'assessment_id': assessment.id, 'question_id': q.id})
+        resp = self.client.post(edit_url, {
+            'edit_scope': 'all',
+            'question_type': QuestionType.SINGLE_CHOICE,
+            'question_text': '<p>Updated In-Place Text</p>',
+            'default_marks': '4.00',
+            'option_text[]': ['Choice A', 'Choice B'],
+            'is_correct[]': ['0'],
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(resp.status_code, 200)
+        json_resp = resp.json()
+        self.assertTrue(json_resp['success'])
+
+        q.refresh_from_db()
+        aq.refresh_from_db()
+        self.assertIn('Updated In-Place Text', q.question_text)
+        self.assertEqual(aq.question_id, q.id)
+        self.assertEqual(aq.effective_marks, Decimal('4.00'))
+
+    def test_assessment_edit_question_fork_scope(self):
+        # Two assessments sharing the same question
+        assessment1 = Assessment.objects.create(title='Ass 1', code='BT-FORK-01', status=Assessment.Status.DRAFT, created_by=self.trainer)
+        assessment2 = Assessment.objects.create(title='Ass 2', code='BT-FORK-02', status=Assessment.Status.DRAFT, created_by=self.trainer)
+
+        shared_q = Question.objects.create(
+            question_text="Shared Question",
+            question_type=QuestionType.SINGLE_CHOICE,
+            default_marks=Decimal('1.00'),
+            created_by=self.trainer
+        )
+        aq1 = AssessmentQuestion.objects.create(assessment=assessment1, question=shared_q, order=1)
+        aq2 = AssessmentQuestion.objects.create(assessment=assessment2, question=shared_q, order=1)
+
+        # Edit on assessment 1 with scope='this_assessment_only'
+        edit_url = reverse('assessments:assessment_edit_question', kwargs={'assessment_id': assessment1.id, 'question_id': shared_q.id})
+        resp = self.client.post(edit_url, {
+            'edit_scope': 'this_assessment_only',
+            'question_type': QuestionType.SINGLE_CHOICE,
+            'question_text': '<p>Forked Text For Ass 1 Only</p>',
+            'default_marks': '5.00',
+            'option_text[]': ['Forked Opt 1', 'Forked Opt 2'],
+            'is_correct[]': ['0'],
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(resp.status_code, 200)
+        aq1.refresh_from_db()
+        aq2.refresh_from_db()
+        shared_q.refresh_from_db()
+
+        # Assessment 1 now has the newly forked question
+        self.assertNotEqual(aq1.question_id, shared_q.id)
+        self.assertIn('Forked Text For Ass 1 Only', aq1.question.question_text)
+        self.assertEqual(aq1.effective_marks, Decimal('5.00'))
+
+        # Assessment 2 and the original bank question remain unchanged!
+        self.assertEqual(aq2.question_id, shared_q.id)
+        self.assertEqual(shared_q.question_text, "Shared Question")
+
+    def test_sanitizer_compact_spacing(self):
+        from core.sanitizer import sanitize_rich_text
+        # Multi consecutive empty paragraphs should collapse
+        raw_html = "<p>First paragraph.</p><p><br></p><p><br></p><p><br></p><p>Second paragraph.</p>"
+        cleaned = sanitize_rich_text(raw_html)
+        self.assertNotIn("<p><br></p><p><br></p>", cleaned)
+        self.assertIn("<p>First paragraph.</p>", cleaned)
+        self.assertIn("<p>Second paragraph.</p>", cleaned)
+
+
 

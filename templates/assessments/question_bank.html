@@ -101,7 +101,10 @@
             {% endif %}
           </td>
           <td style="text-align: right; white-space: nowrap;">
-            <a href="{% url 'assessments:question_duplicate' q.id %}" class="btn btn-sm btn-outline" title="Clone this question">📋 Duplicate</a>
+            <div style="display: inline-flex; gap: 0.35rem;">
+              <a href="{% url 'assessments:question_edit' q.id %}" class="btn btn-sm btn-secondary" title="Edit this question">✏️ Edit</a>
+              <a href="{% url 'assessments:question_duplicate' q.id %}" class="btn btn-sm btn-outline" title="Clone this question">📋 Duplicate</a>
+            </div>
           </td>
         </tr>
       {% empty %}

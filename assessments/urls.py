@@ -17,6 +17,7 @@ urlpatterns = [
     path('<int:assessment_id>/add-question/<int:question_id>/', views.assessment_add_question_view, name='assessment_add_question'),
     path('<int:assessment_id>/remove-question/<int:question_id>/', views.assessment_remove_question_view, name='assessment_remove_question'),
     path('<int:assessment_id>/questions/create-and-add/', views.assessment_create_and_add_question_view, name='assessment_create_and_add_question'),
+    path('<int:assessment_id>/questions/<int:question_id>/edit/', views.assessment_edit_question_view, name='assessment_edit_question'),
 
     # Categories Management
     path('categories/', views.category_list_view, name='category_list'),
@@ -29,6 +30,8 @@ urlpatterns = [
     # Central Question Bank
     path('questions/', views.question_bank_list_view, name='question_bank'),
     path('questions/create/', views.question_create_view, name='question_create'),
+    path('questions/<int:question_id>/edit/', views.question_edit_view, name='question_edit'),
+    path('questions/<int:question_id>/data/', views.question_data_json_view, name='question_data_json'),
     path('questions/<int:question_id>/duplicate/', views.question_duplicate_view, name='question_duplicate'),
     path('questions/export/csv/', views.question_export_csv_view, name='question_export_csv'),
     path('questions/import/csv/', views.question_import_csv_view, name='question_import_csv'),

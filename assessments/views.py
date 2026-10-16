@@ -300,6 +300,180 @@ def assessment_create_and_add_question_view(request, assessment_id):
 
 
 @login_required
+def assessment_edit_question_view(request, assessment_id, question_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    aq = get_object_or_404(AssessmentQuestion, assessment=assessment, question_id=question_id)
+    target_question = aq.question
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if request.method == 'POST':
+        q_text = request.POST.get('question_text', '').strip()
+        default_marks = request.POST.get('default_marks', '1.00')
+        difficulty = request.POST.get('difficulty', Difficulty.MEDIUM)
+        category_id = request.POST.get('category') or None
+        hint = request.POST.get('hint', '').strip()
+        explanation = request.POST.get('explanation', '').strip()
+        tags = request.POST.get('tags', '').strip()
+        scope = request.POST.get('edit_scope', 'all')  # 'all' vs 'this_assessment_only'
+
+        if not q_text:
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': 'Question text / prompt is required.'}, status=400)
+            messages.error(request, "Question text is required.")
+            return redirect('assessments:assessment_detail', assessment_id=assessment.id)
+
+        try:
+            marks_val = Decimal(default_marks)
+            if marks_val <= 0:
+                marks_val = Decimal('1.00')
+        except Exception:
+            marks_val = Decimal('1.00')
+
+        category = Category.objects.filter(id=category_id).first() if category_id else None
+        clean_text = sanitize_rich_text(q_text)
+
+        new_q_type = request.POST.get('question_type', target_question.question_type)
+        if new_q_type not in QuestionType.values:
+            new_q_type = target_question.question_type
+
+        with transaction.atomic():
+            other_attachments = AssessmentQuestion.objects.filter(question=target_question).exclude(id=aq.id).exists()
+            should_fork = (scope == 'this_assessment_only' and other_attachments)
+
+            if should_fork:
+                working_q = Question.objects.create(
+                    category=category,
+                    question_type=new_q_type,
+                    question_text=clean_text,
+                    default_marks=marks_val,
+                    difficulty=difficulty,
+                    hint=hint,
+                    explanation=explanation,
+                    tags=tags,
+                    short_answer_accepted=request.POST.get('short_answer_accepted', '').strip(),
+                    created_by=request.user
+                )
+                aq.question = working_q
+            else:
+                working_q = target_question
+                working_q.category = category
+                working_q.question_type = new_q_type
+                working_q.question_text = clean_text
+                working_q.default_marks = marks_val
+                working_q.difficulty = difficulty
+                working_q.hint = hint
+                working_q.explanation = explanation
+                working_q.tags = tags
+                working_q.short_answer_accepted = request.POST.get('short_answer_accepted', '').strip()
+                working_q.save()
+
+            aq.marks_override = marks_val
+            aq.save()
+
+            q_type = working_q.question_type
+            working_q.options.all().delete()
+            created_options = []
+
+            if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT]:
+                option_texts = request.POST.getlist('option_text[]')
+                correct_flags = request.POST.getlist('is_correct[]')
+                for idx, text in enumerate(option_texts):
+                    if text.strip():
+                        is_corr = str(idx) in correct_flags or ('opt_' + str(idx)) in correct_flags
+                        opt = QuestionOption.objects.create(
+                            question=working_q,
+                            option_text=text.strip(),
+                            is_correct=is_corr,
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'is_correct': opt.is_correct})
+
+            elif q_type in [QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
+                correct_val = request.POST.get('binary_correct', 'true').lower()
+                opt1_text = "True" if q_type == QuestionType.TRUE_FALSE else "Yes"
+                opt2_text = "False" if q_type == QuestionType.TRUE_FALSE else "No"
+                opt1 = QuestionOption.objects.create(question=working_q, option_text=opt1_text, is_correct=(correct_val == 'true'), display_order=1)
+                opt2 = QuestionOption.objects.create(question=working_q, option_text=opt2_text, is_correct=(correct_val == 'false'), display_order=2)
+                created_options = [
+                    {'text': opt1.option_text, 'is_correct': opt1.is_correct},
+                    {'text': opt2.option_text, 'is_correct': opt2.is_correct}
+                ]
+
+            elif q_type in [QuestionType.SHORT_ANSWER, QuestionType.FILL_BLANK]:
+                working_q.short_answer_accepted = request.POST.get('short_answer_accepted', '').strip()
+                working_q.save(update_fields=['short_answer_accepted'])
+
+            elif q_type == QuestionType.NUMERIC:
+                num_ans = request.POST.get('numeric_answer')
+                num_tol = request.POST.get('numeric_tolerance', '0.0000')
+                if num_ans:
+                    try:
+                        working_q.numeric_answer = Decimal(num_ans)
+                        working_q.numeric_tolerance = Decimal(num_tol)
+                        working_q.save(update_fields=['numeric_answer', 'numeric_tolerance'])
+                    except Exception:
+                        pass
+
+            elif q_type == QuestionType.MATCHING:
+                prompts = request.POST.getlist('match_prompt[]')
+                targets = request.POST.getlist('match_target[]')
+                for idx, (p, t) in enumerate(zip(prompts, targets)):
+                    if p.strip() and t.strip():
+                        opt = QuestionOption.objects.create(
+                            question=working_q,
+                            option_text=p.strip(),
+                            match_target=t.strip(),
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'match_target': opt.match_target})
+
+            elif q_type == QuestionType.ORDERING:
+                order_items = request.POST.getlist('order_item[]')
+                for idx, item in enumerate(order_items):
+                    if item.strip():
+                        opt = QuestionOption.objects.create(
+                            question=working_q,
+                            option_text=item.strip(),
+                            correct_order=idx + 1,
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'correct_order': opt.correct_order})
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='QUESTION_EDITED',
+                target_model='AssessmentQuestion',
+                target_id=str(aq.id),
+                details={'question_id': working_q.id, 'assessment_id': assessment.id, 'forked': should_fork}
+            )
+
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'message': f"Question #{working_q.id} updated successfully.",
+                'question': {
+                    'id': working_q.id,
+                    'order': aq.order,
+                    'text': working_q.question_text,
+                    'type_display': working_q.get_question_type_display(),
+                    'type': working_q.question_type,
+                    'marks': str(aq.effective_marks),
+                    'options': created_options,
+                    'remove_url': reverse('assessments:assessment_remove_question', kwargs={'assessment_id': assessment.id, 'question_id': working_q.id}),
+                    'total_marks': str(assessment.total_marks),
+                }
+            })
+
+        messages.success(request, f"Question #{working_q.id} updated successfully.")
+        return redirect('assessments:assessment_detail', assessment_id=assessment.id)
+
+    return redirect('assessments:assessment_detail', assessment_id=assessment.id)
+
+
+@login_required
 def assessment_add_question_view(request, assessment_id, question_id):
     if not (request.user.is_trainer or request.user.is_assessment_admin):
         return HttpResponseForbidden("Access restricted.")
@@ -471,6 +645,136 @@ def question_create_view(request):
     return render(request, 'assessments/question_form.html', {
         'form': form,
         'title': 'Add Question to Bank'
+    })
+
+
+@login_required
+def question_edit_view(request, question_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    question = get_object_or_404(Question, id=question_id)
+    form = QuestionForm(request.POST or None, request.FILES or None, instance=question)
+
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            q = form.save(commit=False)
+            q_text = request.POST.get('question_text', '').strip()
+            if q_text:
+                q.question_text = sanitize_rich_text(q_text)
+            r_text = request.POST.get('rich_content', '').strip()
+            if r_text:
+                q.rich_content = sanitize_rich_text(r_text)
+            q.save()
+
+            q_type = q.question_type
+            q.options.all().delete()
+
+            if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT]:
+                option_texts = request.POST.getlist('option_text[]')
+                correct_flags = request.POST.getlist('is_correct[]')
+                for idx, text in enumerate(option_texts):
+                    if text.strip():
+                        is_corr = str(idx) in correct_flags or ('opt_' + str(idx)) in correct_flags
+                        QuestionOption.objects.create(
+                            question=q,
+                            option_text=text.strip(),
+                            is_correct=is_corr,
+                            display_order=idx + 1
+                        )
+            elif q_type in [QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
+                correct_val = request.POST.get('binary_correct', 'true').lower()
+                opt1_text = "True" if q_type == QuestionType.TRUE_FALSE else "Yes"
+                opt2_text = "False" if q_type == QuestionType.TRUE_FALSE else "No"
+                QuestionOption.objects.create(question=q, option_text=opt1_text, is_correct=(correct_val == 'true'), display_order=1)
+                QuestionOption.objects.create(question=q, option_text=opt2_text, is_correct=(correct_val == 'false'), display_order=2)
+            elif q_type == QuestionType.MATCHING:
+                prompts = request.POST.getlist('match_prompt[]')
+                targets = request.POST.getlist('match_target[]')
+                for idx, (p, t) in enumerate(zip(prompts, targets)):
+                    if p.strip() and t.strip():
+                        QuestionOption.objects.create(
+                            question=q,
+                            option_text=p.strip(),
+                            match_target=t.strip(),
+                            display_order=idx + 1
+                        )
+            elif q_type == QuestionType.ORDERING:
+                order_items = request.POST.getlist('order_item[]')
+                for idx, item in enumerate(order_items):
+                    if item.strip():
+                        QuestionOption.objects.create(
+                            question=q,
+                            option_text=item.strip(),
+                            correct_order=idx + 1,
+                            display_order=idx + 1
+                        )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='QUESTION_EDITED',
+                target_model='Question',
+                target_id=str(q.id),
+                details={'type': q.question_type}
+            )
+
+        messages.success(request, f"Question #{q.id} updated successfully.")
+        return redirect('assessments:question_bank')
+
+    existing_options = list(question.options.order_by('display_order'))
+    binary_correct = 'true'
+    if question.question_type in [QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
+        for opt in existing_options:
+            if opt.is_correct:
+                binary_correct = 'true' if opt.option_text in ['True', 'Yes'] else 'false'
+                break
+
+    return render(request, 'assessments/question_form.html', {
+        'form': form,
+        'title': f'Edit Question #{question.id}',
+        'question': question,
+        'existing_options': existing_options,
+        'binary_correct': binary_correct,
+        'is_edit': True,
+    })
+
+
+@login_required
+def question_data_json_view(request, question_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted.")
+
+    q = get_object_or_404(Question, id=question_id)
+    options_data = []
+    for opt in q.options.order_by('display_order'):
+        options_data.append({
+            'id': opt.id,
+            'text': opt.option_text,
+            'is_correct': opt.is_correct,
+            'match_target': opt.match_target,
+            'correct_order': opt.correct_order,
+        })
+    attached_count = q.assessment_usages.count()
+    return JsonResponse({
+        'success': True,
+        'question': {
+            'id': q.id,
+            'type': q.question_type,
+            'type_display': q.get_question_type_display(),
+            'question_text': q.question_text,
+            'rich_content': q.rich_content,
+            'default_marks': str(q.default_marks),
+            'difficulty': q.difficulty,
+            'category_id': q.category_id,
+            'hint': q.hint,
+            'explanation': q.explanation,
+            'tags': q.tags,
+            'short_answer_accepted': q.short_answer_accepted,
+            'numeric_answer': str(q.numeric_answer) if q.numeric_answer is not None else '',
+            'numeric_tolerance': str(q.numeric_tolerance) if q.numeric_tolerance is not None else '0.0000',
+            'options': options_data,
+            'attached_assessments_count': attached_count,
+        }
     })
 
 
