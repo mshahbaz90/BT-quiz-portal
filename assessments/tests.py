@@ -505,5 +505,33 @@ class AssessmentsTestCase(TestCase):
         self.assertIn("<p>First paragraph.</p>", cleaned)
         self.assertIn("<p>Second paragraph.</p>", cleaned)
 
+    def test_sanitizer_strips_black_colors_for_dark_mode_visibility(self):
+        from core.sanitizer import sanitize_rich_text
+        # Black colors from copy-paste (Word/Docs) should be stripped so they inherit white in dark mode
+        raw_html = (
+            '<p style="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); font-weight: bold;">'
+            'Do Not Go Offscript =</p>'
+            '<p><span style="color: #000000;">Cannot make changes to the text.</span></p>'
+            '<p><span class="ql-color-black">Only acknowledgements are allowed.</span></p>'
+            '<p><span style="color: #ef4444; font-weight: bold;">Important Warning in Red</span></p>'
+        )
+        cleaned = sanitize_rich_text(raw_html)
+
+        # Black font color and white background should be stripped
+        self.assertNotIn("color: rgb(0, 0, 0)", cleaned)
+        self.assertNotIn("color: #000000", cleaned)
+        self.assertNotIn("background-color: rgb(255, 255, 255)", cleaned)
+        self.assertNotIn("ql-color-black", cleaned)
+
+        # Text content must be preserved
+        self.assertIn("Do Not Go Offscript =", cleaned)
+        self.assertIn("Cannot make changes to the text.", cleaned)
+        self.assertIn("Only acknowledgements are allowed.", cleaned)
+
+        # Legitimate accent colors like red warning must be preserved
+        self.assertIn("#ef4444", cleaned)
+        self.assertIn("Important Warning in Red", cleaned)
+
+
 
 

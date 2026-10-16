@@ -244,6 +244,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    // Strip pasted black colors and white backgrounds so text naturally adapts to dark mode
+    if (qQuill.clipboard && typeof qQuill.clipboard.addMatcher === 'function') {
+      qQuill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
+        delta.forEach(op => {
+          if (op.attributes) {
+            if (op.attributes.color) {
+              const c = String(op.attributes.color).toLowerCase().replace(/\s/g, '');
+              if (c === '#000000' || c === '#000' || c === 'black' || c.startsWith('rgb(0,0,0)')) {
+                delete op.attributes.color;
+              }
+            }
+            if (op.attributes.background) {
+              const bg = String(op.attributes.background).toLowerCase().replace(/\s/g, '');
+              if (bg === '#ffffff' || bg === '#fff' || bg === 'white' || bg === 'transparent' || bg.startsWith('rgb(255,255,255)')) {
+                delete op.attributes.background;
+              }
+            }
+          }
+        });
+        return delta;
+      });
+    }
+
     if (qTextArea && qTextArea.value) {
       qQuill.root.innerHTML = qTextArea.value;
     }

@@ -43,6 +43,40 @@ ALLOWED_CSS_PROPERTIES = {
 SAFE_SCHEMES = {'http', 'https', 'mailto', 'tel'}
 
 
+def is_black_or_dark_color(val):
+    """
+    Returns True if a CSS color value represents black or dark-gray
+    that would be unreadable on a dark theme background.
+    """
+    v = val.strip().lower().replace(' ', '')
+    if v in {
+        'black', '#000', '#000000', '#111', '#111111', '#222', '#222222', '#333', '#333333',
+        'rgb(0,0,0)', 'rgba(0,0,0,1)', 'rgba(0,0,0,1.0)',
+        'rgb(34,34,34)', 'rgb(33,37,41)', '#212529', '#1e293b', '#0f172a',
+        '#050212', '#0c0722', '#110a2f', '#12092c', '#160e38', '#1f2937', '#374151'
+    }:
+        return True
+    if re.match(r'^#[0-3][0-9a-f]{2}$', v) or re.match(r'^#[0-3][0-9a-f][0-3][0-9a-f][0-3][0-9a-f]$', v):
+        return True
+    m = re.match(r'^rgba?\((\d+),(\d+),(\d+)', v)
+    if m:
+        r, g, b = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if r < 75 and g < 75 and b < 75:
+            return True
+    return False
+
+
+def is_white_or_light_bg(val):
+    """
+    Returns True if a background-color is white/near-white,
+    often pasted inadvertently from Word or Google Docs.
+    """
+    v = val.strip().lower().replace(' ', '')
+    if v in {'white', '#fff', '#ffffff', 'rgb(255,255,255)', 'rgba(255,255,255,1)', 'transparent'}:
+        return True
+    return False
+
+
 def clean_css_style(style_value):
     """Sanitize inline style declaration, allowing only safe CSS rules."""
     if not style_value:
@@ -64,6 +98,12 @@ def clean_css_style(style_value):
         if prop in ALLOWED_CSS_PROPERTIES:
             # Check value safety (only allow basic alphanumeric, colors, units)
             if re.match(r'^[#a-zA-Z0-9\s.,%()_\-]+$', val):
+                # Omit black/dark text colors so text adapts to theme (white in dark mode, dark in light mode)
+                if prop == 'color' and is_black_or_dark_color(val):
+                    continue
+                # Omit white/transparent pasted background colors
+                if prop == 'background-color' and is_white_or_light_bg(val):
+                    continue
                 cleaned_declarations.append(f"{prop}: {val}")
 
     return '; '.join(cleaned_declarations)
@@ -101,6 +141,11 @@ class SafeHTMLSanitizer(HTMLParser):
                 safe_style = clean_css_style(val)
                 if safe_style:
                     cleaned_attrs.append(('style', safe_style))
+            elif attr_lower == 'class':
+                # Strip Quill black color classes
+                c_val = re.sub(r'\bql-color-black\b', '', val).strip()
+                if c_val:
+                    cleaned_attrs.append(('class', c_val))
             else:
                 cleaned_attrs.append((attr_lower, val))
 
