@@ -16,6 +16,7 @@ urlpatterns = [
     path('<int:assessment_id>/toggle-publish/', views.assessment_toggle_publish_view, name='assessment_toggle_publish'),
     path('<int:assessment_id>/add-question/<int:question_id>/', views.assessment_add_question_view, name='assessment_add_question'),
     path('<int:assessment_id>/remove-question/<int:question_id>/', views.assessment_remove_question_view, name='assessment_remove_question'),
+    path('<int:assessment_id>/questions/create-and-add/', views.assessment_create_and_add_question_view, name='assessment_create_and_add_question'),
 
     # Categories Management
     path('categories/', views.category_list_view, name='category_list'),

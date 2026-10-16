@@ -36,7 +36,7 @@ def initialize_attempt(assessment, user, link=None, participant_info=None, ip_ad
             link=link,
             participant_name=p_info.get('name', ''),
             participant_email=p_info.get('email', ''),
-            participant_employee_id=p_info.get('employee_id', ''),
+            participant_employee_id=p_info.get('employee_id') or '',
             participant_department=p_info.get('department', ''),
             assessment_version=assessment.version,
             attempt_number=attempt_number,
@@ -198,6 +198,12 @@ def start_instruction_view(request, assessment_id):
                     'cooldown_deadline': cooldown_deadline,
                 })
 
+    if assessment.assessment_questions.count() == 0:
+        return render(request, 'exam/instruction.html', {
+            'assessment': assessment,
+            'has_no_questions': True,
+        })
+
     access_code_error = False
     if request.method == 'POST':
         # Verify access code PIN if configured
@@ -252,6 +258,13 @@ def public_link_entry_view(request, link_code):
             'reason': unavail_reason,
         })
 
+    if assessment.assessment_questions.count() == 0:
+        return render(request, 'exam/link_unavailable.html', {
+            'link': link,
+            'assessment': assessment,
+            'reason': "This assessment does not have any questions attached yet. Please contact the administrator.",
+        })
+
     # Check for active in-progress attempt for signed-in user
     if request.user.is_authenticated:
         active_attempt = AssessmentAttempt.objects.filter(
@@ -285,7 +298,8 @@ def public_link_entry_view(request, link_code):
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         email = request.POST.get('email', '').strip().lower()
-        employee_id = request.POST.get('employee_id', '').strip()
+        employee_id_raw = request.POST.get('employee_id', '').strip()
+        employee_id = employee_id_raw if employee_id_raw else None
         department = request.POST.get('department', '').strip()
         access_code = request.POST.get('access_code', '').strip()
 
@@ -296,7 +310,7 @@ def public_link_entry_view(request, link_code):
             if not email:
                 email = request.user.email
             if not employee_id:
-                employee_id = request.user.employee_id or ''
+                employee_id = request.user.employee_id or None
             if not department:
                 department = request.user.department.name if request.user.department else ''
 
@@ -335,13 +349,18 @@ def public_link_entry_view(request, link_code):
             if request.user.is_authenticated:
                 candidate_user = request.user
             else:
-                candidate_user = User.objects.filter(email__iexact=email).first()
+                candidate_user = None
+                if email:
+                    candidate_user = User.objects.filter(email__iexact=email).first()
+                if not candidate_user and employee_id:
+                    candidate_user = User.objects.filter(employee_id__iexact=employee_id).first()
+
                 if not candidate_user:
                     username_base = slugify(name)[:20] if name else "candidate"
                     username = f"{username_base}_{uuid.uuid4().hex[:6]}"
                     candidate_user = User.objects.create(
                         username=username,
-                        email=email,
+                        email=email or f"{username}@guest.portal",
                         first_name=name.split(' ')[0] if name else 'Candidate',
                         last_name=' '.join(name.split(' ')[1:]) if (name and ' ' in name) else '',
                         role=Role.EMPLOYEE,

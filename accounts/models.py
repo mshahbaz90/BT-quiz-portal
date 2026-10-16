@@ -64,6 +64,12 @@ class User(AbstractUser):
         verbose_name = 'BreakThru User'
         verbose_name_plural = 'BreakThru Users'
 
+    def save(self, *args, **kwargs):
+        if self.employee_id is not None:
+            cleaned_id = str(self.employee_id).strip()
+            self.employee_id = cleaned_id if cleaned_id else None
+        super().save(*args, **kwargs)
+
     def __str__(self):
         emp_tag = f" [{self.employee_id}]" if self.employee_id else ""
         return f"{self.get_full_name() or self.username}{emp_tag}"

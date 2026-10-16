@@ -69,7 +69,7 @@
         <tr>
           <td><span class="badge badge-info">{{ q.get_question_type_display }}</span></td>
           <td>
-            <div style="font-weight: 600; line-height: 1.35; color: var(--text-main);">{{ q.question_text|truncatechars:100 }}</div>
+            <div style="font-weight: 600; line-height: 1.35; color: var(--text-main);">{{ q.question_text|strip_html_preview:100 }}</div>
             {% if q.tags %}
               <div style="margin-top: 0.25rem;">
                 <span style="font-size: 0.72rem; color: var(--text-subtle);">Tags: {{ q.tags }}</span>

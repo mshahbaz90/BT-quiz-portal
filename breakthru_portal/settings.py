@@ -113,6 +113,9 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.branding_context',
             ],
+            'builtins': [
+                'core.templatetags.portal_tags',
+            ],
         },
     },
 ]

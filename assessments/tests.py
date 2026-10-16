@@ -237,3 +237,112 @@ class AssessmentsTestCase(TestCase):
         resp_paused = guest_client.get(f'/links/{link.link_code}/')
         self.assertEqual(resp_paused.status_code, 200)
         self.assertContains(resp_paused, 'Assessment Link Unavailable')
+
+    def test_direct_create_and_add_question_ajax(self):
+        assessment = Assessment.objects.create(
+            title='Direct Add Assessment',
+            code='BT-DIRECT-01',
+            duration_minutes=15,
+            pass_mark_percentage=50,
+            status=Assessment.Status.DRAFT,
+            created_by=self.trainer
+        )
+
+        url = reverse('assessments:assessment_create_and_add_question', kwargs={'assessment_id': assessment.id})
+        
+        # Test AJAX POST with rich text and options
+        raw_html = '<p>Analyze this <strong>critical scenario</strong>:<br><script>alert("xss")</script>What is the first step?</p>'
+        resp = self.client.post(
+            url,
+            data={
+                'question_type': QuestionType.SINGLE_CHOICE,
+                'question_text': raw_html,
+                'default_marks': '2.50',
+                'difficulty': 'MEDIUM',
+                'option_text[]': ['Step 1: Check logs', 'Step 2: Restart server', 'Step 3: Ignore'],
+                'is_correct[]': ['0'],
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data.get('success'))
+        self.assertEqual(data.get('total_questions'), 1)
+
+        # 1. Question saved in Question Bank
+        q = Question.objects.get(id=data['question']['id'])
+        self.assertEqual(q.created_by, self.trainer)
+        self.assertEqual(q.default_marks, Decimal('2.50'))
+        # Script tags must be stripped, rich tags preserved
+        self.assertNotIn('<script>', q.question_text)
+        self.assertIn('<strong>critical scenario</strong>', q.question_text)
+
+        # 2. Attached to Assessment
+        aq = AssessmentQuestion.objects.get(assessment=assessment, question=q)
+        self.assertEqual(aq.order, 1)
+        self.assertEqual(aq.effective_marks, Decimal('2.50'))
+
+        # 3. Question options created
+        opts = list(q.options.order_by('display_order'))
+        self.assertEqual(len(opts), 3)
+        self.assertEqual(opts[0].option_text, 'Step 1: Check logs')
+        self.assertTrue(opts[0].is_correct)
+        self.assertFalse(opts[1].is_correct)
+
+    def test_direct_create_and_add_question_standard_post(self):
+        assessment = Assessment.objects.create(
+            title='Direct Add Form Post',
+            code='BT-DIRECT-02',
+            duration_minutes=20,
+            pass_mark_percentage=60,
+            status=Assessment.Status.DRAFT,
+            created_by=self.trainer
+        )
+        url = reverse('assessments:assessment_create_and_add_question', kwargs={'assessment_id': assessment.id})
+        resp = self.client.post(url, {
+            'question_type': QuestionType.TRUE_FALSE,
+            'question_text': 'Django ORM uses parameterized queries to prevent SQL injection.',
+            'default_marks': '1.00',
+            'binary_correct': 'true',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(assessment.assessment_questions.count(), 1)
+        q = assessment.assessment_questions.first().question
+        self.assertTrue(q.options.filter(is_correct=True, option_text='True').exists())
+
+    def test_manage_button_removed_from_direct_links_row(self):
+        from assessments.models import AssessmentLink
+        assessment = Assessment.objects.create(
+            title='Link Row Test',
+            code='BT-ROW-01',
+            status=Assessment.Status.DRAFT,
+            created_by=self.trainer
+        )
+        link = AssessmentLink.objects.create(
+            name='Test Batch Link',
+            assessment=assessment,
+            created_by=self.trainer
+        )
+        resp = self.client.get(reverse('assessments:assessment_detail', kwargs={'assessment_id': assessment.id}))
+        self.assertEqual(resp.status_code, 200)
+        # Should contain the copy link button
+        self.assertContains(resp, 'Copy')
+        # Should NOT contain the unwanted 'Manage ->' button from Screenshot 2
+        self.assertNotContains(resp, 'Manage &rarr;')
+        self.assertNotContains(resp, 'Manage ->')
+
+    def test_manage_button_removed_from_assessment_list(self):
+        assessment = Assessment.objects.create(
+            title='List Table Test',
+            code='BT-LIST-01',
+            status=Assessment.Status.PUBLISHED,
+            created_by=self.trainer
+        )
+        resp = self.client.get(reverse('assessments:assessment_list'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Preview')
+        # Should NOT contain the 'Manage' button in the table actions
+        self.assertNotContains(resp, '⚙️ Manage')
+        self.assertNotContains(resp, '⚙ Manage')
+
+

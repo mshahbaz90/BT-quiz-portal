@@ -199,6 +199,14 @@ class Question(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    def save(self, *args, **kwargs):
+        from core.sanitizer import sanitize_rich_text
+        if self.question_text:
+            self.question_text = sanitize_rich_text(self.question_text)
+        if self.rich_content:
+            self.rich_content = sanitize_rich_text(self.rich_content)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"[{self.get_question_type_display()}] {self.question_text[:70]}"
 

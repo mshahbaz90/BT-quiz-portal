@@ -141,3 +141,36 @@ class ExamAndGradingTestCase(TestCase):
         resp_cooldown = self.client.get(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}))
         self.assertEqual(resp_cooldown.status_code, 200)
         self.assertContains(resp_cooldown, 'Retake Cooldown Active')
+
+    def test_public_link_entry_without_employee_id_prevents_integrity_error(self):
+        from assessments.models import AssessmentLink
+        link = AssessmentLink.objects.create(
+            assessment=self.assessment,
+            name="Open Link",
+            require_employee_id=False,
+            collect_name=True,
+            collect_email=True
+        )
+        anon_client1 = Client()
+        # Candidate 1 enters without employee_id
+        resp1 = anon_client1.post(reverse('exam:link_entry', kwargs={'link_code': link.link_code}), {
+            'name': 'Candidate One',
+            'email': 'cand1@breakthru.pk',
+            'employee_id': '',
+        })
+        self.assertEqual(resp1.status_code, 302)
+
+        anon_client2 = Client()
+        # Candidate 2 enters without employee_id - this previously crashed with IntegrityError
+        resp2 = anon_client2.post(reverse('exam:link_entry', kwargs={'link_code': link.link_code}), {
+            'name': 'Candidate Two',
+            'email': 'cand2@breakthru.pk',
+            'employee_id': '',
+        })
+        self.assertEqual(resp2.status_code, 302)
+
+        user1 = User.objects.get(email='cand1@breakthru.pk')
+        user2 = User.objects.get(email='cand2@breakthru.pk')
+        self.assertIsNone(user1.employee_id)
+        self.assertIsNone(user2.employee_id)
+

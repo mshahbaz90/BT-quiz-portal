@@ -1,10 +1,12 @@
 import csv
 import io
+from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpResponse
-from django.db import models
+from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpResponse, JsonResponse
+from django.db import models, transaction
 from django.core.paginator import Paginator
 
 from assessments.models import (
@@ -13,6 +15,7 @@ from assessments.models import (
 )
 from assessments.forms import AssessmentForm, QuestionForm, CategoryForm, AssessmentLinkForm
 from core.models import AuditLog
+from core.sanitizer import sanitize_rich_text
 
 
 @login_required
@@ -120,11 +123,180 @@ def assessment_detail_view(request, assessment_id):
     # Assessment Links created for this assessment
     links = assessment.links.prefetch_related('link_attempts').all()
 
+    categories = Category.objects.all()
+
     return render(request, 'assessments/assessment_detail.html', {
         'assessment': assessment,
         'available_bank_questions': available_bank_questions,
         'links': links,
+        'categories': categories,
+        'question_types': QuestionType.choices,
+        'difficulties': Difficulty.choices,
     })
+
+
+@login_required
+def assessment_create_and_add_question_view(request, assessment_id):
+    if not (request.user.is_trainer or request.user.is_assessment_admin):
+        return HttpResponseForbidden("Access restricted to Trainers and Administrators.")
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if request.method == 'POST':
+        q_type = request.POST.get('question_type', QuestionType.SINGLE_CHOICE)
+        question_text = request.POST.get('question_text', '').strip()
+        rich_content = request.POST.get('rich_content', '').strip()
+        default_marks = request.POST.get('default_marks', '1.00')
+        difficulty = request.POST.get('difficulty', Difficulty.MEDIUM)
+        category_id = request.POST.get('category') or None
+        explanation = request.POST.get('explanation', '').strip()
+        hint = request.POST.get('hint', '').strip()
+        tags = request.POST.get('tags', '').strip()
+
+        if not question_text:
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': 'Question text / prompt is required.'}, status=400)
+            messages.error(request, "Question text / prompt is required.")
+            return redirect('assessments:assessment_detail', assessment_id=assessment.id)
+
+        try:
+            marks_val = Decimal(default_marks)
+            if marks_val <= 0:
+                marks_val = Decimal('1.00')
+        except Exception:
+            marks_val = Decimal('1.00')
+
+        category = None
+        if category_id:
+            category = Category.objects.filter(id=category_id).first()
+
+        clean_text = sanitize_rich_text(question_text)
+        clean_rich = sanitize_rich_text(rich_content) if rich_content else ''
+
+        with transaction.atomic():
+            question = Question.objects.create(
+                category=category,
+                question_type=q_type,
+                question_text=clean_text,
+                rich_content=clean_rich,
+                default_marks=marks_val,
+                difficulty=difficulty,
+                explanation=explanation,
+                hint=hint,
+                tags=tags,
+                created_by=request.user
+            )
+
+            created_options = []
+            if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_SELECT]:
+                option_texts = request.POST.getlist('option_text[]')
+                correct_flags = request.POST.getlist('is_correct[]')
+                for idx, text in enumerate(option_texts):
+                    if text.strip():
+                        is_corr = str(idx) in correct_flags or ('opt_' + str(idx)) in correct_flags
+                        opt = QuestionOption.objects.create(
+                            question=question,
+                            option_text=text.strip(),
+                            is_correct=is_corr,
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'is_correct': opt.is_correct})
+
+            elif q_type in [QuestionType.TRUE_FALSE, QuestionType.YES_NO]:
+                correct_val = request.POST.get('binary_correct', 'true').lower()
+                opt1_text = "True" if q_type == QuestionType.TRUE_FALSE else "Yes"
+                opt2_text = "False" if q_type == QuestionType.TRUE_FALSE else "No"
+                opt1 = QuestionOption.objects.create(question=question, option_text=opt1_text, is_correct=(correct_val == 'true'), display_order=1)
+                opt2 = QuestionOption.objects.create(question=question, option_text=opt2_text, is_correct=(correct_val == 'false'), display_order=2)
+                created_options = [
+                    {'text': opt1.option_text, 'is_correct': opt1.is_correct},
+                    {'text': opt2.option_text, 'is_correct': opt2.is_correct}
+                ]
+
+            elif q_type in [QuestionType.SHORT_ANSWER, QuestionType.FILL_BLANK]:
+                short_ans = request.POST.get('short_answer_accepted', '').strip()
+                question.short_answer_accepted = short_ans
+                question.save(update_fields=['short_answer_accepted'])
+
+            elif q_type == QuestionType.NUMERIC:
+                num_ans = request.POST.get('numeric_answer')
+                num_tol = request.POST.get('numeric_tolerance', '0.0000')
+                if num_ans:
+                    try:
+                        question.numeric_answer = Decimal(num_ans)
+                        question.numeric_tolerance = Decimal(num_tol)
+                        question.save(update_fields=['numeric_answer', 'numeric_tolerance'])
+                    except Exception:
+                        pass
+
+            elif q_type == QuestionType.MATCHING:
+                prompts = request.POST.getlist('match_prompt[]')
+                targets = request.POST.getlist('match_target[]')
+                for idx, (p, t) in enumerate(zip(prompts, targets)):
+                    if p.strip() and t.strip():
+                        opt = QuestionOption.objects.create(
+                            question=question,
+                            option_text=p.strip(),
+                            match_target=t.strip(),
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'match_target': opt.match_target})
+
+            elif q_type == QuestionType.ORDERING:
+                order_items = request.POST.getlist('order_item[]')
+                for idx, item in enumerate(order_items):
+                    if item.strip():
+                        opt = QuestionOption.objects.create(
+                            question=question,
+                            option_text=item.strip(),
+                            correct_order=idx + 1,
+                            display_order=idx + 1
+                        )
+                        created_options.append({'text': opt.option_text, 'correct_order': opt.correct_order})
+
+            next_order = assessment.assessment_questions.count() + 1
+            aq = AssessmentQuestion.objects.create(
+                assessment=assessment,
+                question=question,
+                order=next_order,
+                marks_override=question.default_marks
+            )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='QUESTION_CREATED_AND_ATTACHED',
+                target_model='AssessmentQuestion',
+                target_id=str(aq.id),
+                details={'question_id': question.id, 'assessment_id': assessment.id, 'type': question.question_type}
+            )
+
+        if is_ajax:
+            total_count = assessment.assessment_questions.count()
+            total_marks = str(assessment.total_marks)
+            return JsonResponse({
+                'success': True,
+                'message': f"Question #{question.id} saved to Question Bank and added to {assessment.code}.",
+                'total_questions': total_count,
+                'total_marks': total_marks,
+                'question': {
+                    'id': question.id,
+                    'order': next_order,
+                    'text': question.question_text,
+                    'type_display': question.get_question_type_display(),
+                    'type': question.question_type,
+                    'marks': str(aq.effective_marks),
+                    'options': created_options,
+                    'remove_url': reverse('assessments:assessment_remove_question', kwargs={'assessment_id': assessment.id, 'question_id': question.id}),
+                    'total_questions': total_count,
+                    'total_marks': total_marks,
+                }
+            })
+
+        messages.success(request, f"Question #{question.id} ({question.get_question_type_display()}) saved to Question Bank and added to this assessment.")
+        return redirect('assessments:assessment_detail', assessment_id=assessment.id)
+
+    return redirect('assessments:assessment_detail', assessment_id=assessment.id)
 
 
 @login_required

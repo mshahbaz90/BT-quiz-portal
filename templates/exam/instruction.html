@@ -31,6 +31,12 @@
       </div>
     {% endif %}
 
+    {% if has_no_questions %}
+      <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+        ⚠️ <strong>No Questions Available:</strong> This assessment cannot be started because it contains zero questions. Please contact your trainer or administrator.
+      </div>
+    {% endif %}
+
     <!-- Parameter Badges Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
       <div style="background: var(--bg-surface); border: 1px solid var(--border-light); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
@@ -84,7 +90,7 @@
       </ul>
     </div>
 
-    {% if not cooldown_active and not resume_forbidden %}
+    {% if not cooldown_active and not resume_forbidden and not has_no_questions %}
       <form method="POST" onsubmit="return confirm('Ready to begin? Your countdown timer will start immediately.');">
         {% csrf_token %}
 

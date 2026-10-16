@@ -2,6 +2,10 @@
 
 {% block title %}{{ assessment.title }} — {{ COMPANY_NAME }}{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/vendor/quill/quill.snow.css">
+{% endblock %}
+
 {% block breadcrumb %}Assessments &rsaquo; {{ assessment.code }} Details{% endblock %}
 
 {% block content %}
@@ -122,13 +126,10 @@
               </div>
             </div>
 
-            <div style="display: flex; gap: 0.5rem;">
+            <div>
               <button type="button" class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText(document.getElementById('link-copy-{{ l.id }}').innerText); this.innerText='✓ Copied'; setTimeout(() => this.innerText='📋 Copy', 1500);">
                 📋 Copy
               </button>
-              <a href="{% url 'assessments:link_detail' l.id %}" class="btn btn-sm btn-secondary">
-                Manage &rarr;
-              </a>
             </div>
           </div>
         {% endfor %}
@@ -148,13 +149,21 @@
   <!-- Attached Questions List -->
   <div style="flex: 2; min-width: 300px;">
     <div class="card" style="padding: 1.25rem;">
-      <div class="card-header" style="margin-bottom: 1rem;">
-        <h2 class="card-title" style="font-size: 1.15rem;">Questions in this Assessment ({{ assessment.assessment_questions.count }})</h2>
+      <div class="card-header" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <h2 class="card-title" style="font-size: 1.15rem; margin: 0;">
+          Questions in this Assessment (<span id="assessment-q-count">{{ assessment.assessment_questions.count }}</span>)
+        </h2>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-open-add-question-modal" style="box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);">
+          ➕ Add Question
+        </button>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <!-- Live Success Alert Banner -->
+      <div id="live-save-toast" class="alert alert-success" style="display: none; margin-bottom: 1rem; font-size: 0.88rem;"></div>
+
+      <div id="attached-questions-container" style="display: flex; flex-direction: column; gap: 1rem;">
         {% for aq in assessment.assessment_questions.all %}
-          <div style="border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; background: var(--bg-surface);">
+          <div class="attached-question-card" id="aq-card-{{ aq.question.id }}" style="border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; background: var(--bg-surface);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
               <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                 <span class="badge badge-info" style="font-family: var(--font-mono);">#{{ aq.order }}</span>
@@ -167,7 +176,9 @@
               </form>
             </div>
 
-            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">{{ aq.question.question_text }}</div>
+            <div class="question-display-body" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">
+              {{ aq.question.question_text|rich_format }}
+            </div>
 
             {% if aq.question.options.exists %}
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.85rem; background: rgba(5, 2, 18, 0.4); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
@@ -182,8 +193,12 @@
             {% endif %}
           </div>
         {% empty %}
-          <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-            No questions attached yet. Select questions from the Question Bank on the right!
+          <div id="empty-questions-placeholder" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <div style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text-main);">No questions attached yet.</div>
+            <p style="font-size: 0.88rem; margin-bottom: 1.25rem;">Create a question directly or select from the Question Bank on the right!</p>
+            <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('btn-open-add-question-modal').click();">
+              ➕ Add Your First Question
+            </button>
           </div>
         {% endfor %}
       </div>
@@ -195,15 +210,17 @@
     <div class="card" style="padding: 1.25rem;">
       <div class="card-header" style="margin-bottom: 0.75rem;">
         <h3 class="card-title" style="font-size: 1.1rem;">Add from Bank</h3>
-        <a href="{% url 'assessments:question_create' %}" class="btn btn-primary btn-sm">➕ Create</a>
+        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('btn-open-add-question-modal').click();">
+          ➕ New Question
+        </button>
       </div>
       <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">
         Click "+ Add" to attach bank questions to this assessment.
       </p>
 
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 550px; overflow-y: auto; padding-right: 0.25rem;">
+      <div id="bank-questions-sidebar-list" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 550px; overflow-y: auto; padding-right: 0.25rem;">
         {% for bq in available_bank_questions %}
-          <div style="padding: 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem; background: var(--bg-surface);">
+          <div class="bank-sidebar-item" id="bank-item-{{ bq.id }}" style="padding: 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem; background: var(--bg-surface);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem;">
               <span class="badge badge-info" style="font-size: 0.65rem;">{{ bq.get_question_type_display }}</span>
               <form method="POST" action="{% url 'assessments:assessment_add_question' assessment.id bq.id %}">
@@ -211,10 +228,10 @@
                 <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;">+ Add</button>
               </form>
             </div>
-            <div style="font-weight: 500; line-height: 1.3; color: var(--text-main);">{{ bq.question_text|truncatechars:65 }}</div>
+            <div style="font-weight: 500; line-height: 1.3; color: var(--text-main);">{{ bq.question_text|strip_html_preview:65 }}</div>
           </div>
         {% empty %}
-          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem;">
+          <div id="no-bank-q-msg" style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem;">
             No additional bank questions found.
           </div>
         {% endfor %}
@@ -222,4 +239,547 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Add Question to Assessment & Bank -->
+<div id="add-question-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="portal-modal-container">
+    <div class="portal-modal-header">
+      <div>
+        <h3 id="modal-title" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">➕ Add Question</h3>
+        <div style="font-size: 0.8rem; color: #a78bfa; margin-top: 0.2rem;">
+          Assessment: <strong>{{ assessment.code }} &bull; {{ assessment.title }}</strong> &bull; Automatically saved to Question Bank
+        </div>
+      </div>
+      <button type="button" id="modal-close-x-btn" class="btn btn-sm btn-outline" style="padding: 2px 8px; font-size: 1.1rem; line-height: 1;" aria-label="Close modal">&times;</button>
+    </div>
+
+    <!-- Modal Form -->
+    <form id="direct-add-question-form" method="POST" action="{% url 'assessments:assessment_create_and_add_question' assessment.id %}">
+      {% csrf_token %}
+      <div class="portal-modal-body">
+        <div id="modal-alert" style="display: none; margin-bottom: 1rem;" class="alert"></div>
+
+        <!-- Question Type & Category -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Question Type *</label>
+            <select name="question_type" id="modal-q-type" class="form-select">
+              {% for code, label in question_types %}
+                <option value="{{ code }}" {% if code == 'SINGLE_CHOICE' %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Category</label>
+            <select name="category" id="modal-q-category" class="form-select">
+              <option value="">- General / None -</option>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if cat.id == assessment.category_id %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Marks</label>
+            <input type="number" name="default_marks" id="modal-q-marks" class="form-input" value="1.00" step="0.5" min="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Difficulty</label>
+            <select name="difficulty" id="modal-q-difficulty" class="form-select">
+              {% for code, label in difficulties %}
+                <option value="{{ code }}" {% if code == 'MEDIUM' %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Rich-Text Question Stem -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label class="form-label" style="margin-bottom: 0;">Question Text & Formatting *</label>
+            <button type="button" id="btn-toggle-preview" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 2px 8px;">
+              👁️ Preview Student View
+            </button>
+          </div>
+          <!-- Hidden input that holds the HTML synced from Quill -->
+          <input type="hidden" name="question_text" id="modal-hidden-question-text">
+          <div id="modal-quill-editor" style="height: 160px;"></div>
+        </div>
+
+        <!-- Live Preview Box (Toggled) -->
+        <div id="modal-preview-box" style="display: none; background: rgba(124, 58, 237, 0.08); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #a78bfa; margin-bottom: 0.5rem;">Candidate Live Preview</div>
+          <div id="modal-preview-content" class="rich-text-content" style="font-size: 0.95rem;"></div>
+        </div>
+
+        <!-- Type-Specific Dynamic Option Containers -->
+        <!-- 1. Single / Multiple Choice Options -->
+        <div id="modal-options-choice" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h4 style="font-size: 0.92rem; margin: 0; color: var(--text-main);">Answer Choices & Answer Key</h4>
+            <button type="button" id="modal-add-choice-btn" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">+ Add Choice</button>
+          </div>
+          <div id="modal-choice-rows" style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <!-- Generated dynamically -->
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            Check the box/radio next to each correct answer.
+          </div>
+        </div>
+
+        <!-- 2. True / False & Yes / No -->
+        <div id="modal-options-binary" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+          <h4 style="font-size: 0.92rem; margin-bottom: 0.75rem; color: var(--text-main);">Correct Response</h4>
+          <div style="display: flex; gap: 2rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="binary_correct" value="true" checked>
+              <span id="binary-label-true">True / Yes</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="binary_correct" value="false">
+              <span id="binary-label-false">False / No</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. Short Answer / Fill Blank -->
+        <div id="modal-options-short" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+          <h4 style="font-size: 0.92rem; margin-bottom: 0.5rem; color: var(--text-main);">Accepted Answer(s)</h4>
+          <input type="text" name="short_answer_accepted" id="modal-short-accepted" class="form-input" placeholder="Pipe-separated acceptable answers, e.g. SQL|Structured Query Language">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">Evaluation is case-insensitive.</div>
+        </div>
+
+        <!-- 4. Numeric -->
+        <div id="modal-options-numeric" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+          <h4 style="font-size: 0.92rem; margin-bottom: 0.5rem; color: var(--text-main);">Numeric Answer & Margin</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;">Exact Value</label>
+              <input type="number" name="numeric_answer" id="modal-num-answer" class="form-input" step="any" placeholder="e.g. 42 or 3.1415">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;">Tolerance Margin (±)</label>
+              <input type="number" name="numeric_tolerance" id="modal-num-tolerance" class="form-input" step="any" value="0.0000">
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Matching -->
+        <div id="modal-options-matching" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="font-size: 0.92rem; margin: 0; color: var(--text-main);">Matching Pairs</h4>
+            <button type="button" id="modal-add-matching-btn" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">+ Add Pair</button>
+          </div>
+          <div id="modal-matching-rows" style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <!-- Matching rows -->
+          </div>
+        </div>
+
+        <!-- 6. Ordering -->
+        <div id="modal-options-ordering" class="card" style="background: var(--bg-subtle); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="font-size: 0.92rem; margin: 0; color: var(--text-main);">Correct Sequence Order (1, 2, 3...)</h4>
+            <button type="button" id="modal-add-ordering-btn" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">+ Add Item</button>
+          </div>
+          <div id="modal-ordering-rows" style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <!-- Ordering rows -->
+          </div>
+        </div>
+
+        <!-- Explanation & Hint -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Hint (Optional, during test)</label>
+            <input type="text" name="hint" id="modal-q-hint" class="form-input" placeholder="Optional clue">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Explanation (After results released)</label>
+            <input type="text" name="explanation" id="modal-q-explanation" class="form-input" placeholder="Why this is the correct answer">
+          </div>
+        </div>
+      </div>
+
+      <div class="portal-modal-footer">
+        <button type="button" id="modal-cancel-btn" class="btn btn-outline">Cancel</button>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button type="button" id="modal-save-another-btn" class="btn btn-secondary">
+            Save &amp; Add Another
+          </button>
+          <button type="button" id="modal-save-btn" class="btn btn-primary">
+            💾 Save &amp; Add to Assessment
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/vendor/quill/quill.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Modal elements
+  const modal = document.getElementById('add-question-modal');
+  const openModalBtn = document.getElementById('btn-open-add-question-modal');
+  const closeXBtn = document.getElementById('modal-close-x-btn');
+  const cancelBtn = document.getElementById('modal-cancel-btn');
+  const form = document.getElementById('direct-add-question-form');
+  const modalAlert = document.getElementById('modal-alert');
+  const saveBtn = document.getElementById('modal-save-btn');
+  const saveAnotherBtn = document.getElementById('modal-save-another-btn');
+  const toast = document.getElementById('live-save-toast');
+
+  // Question Type & Option containers
+  const typeSelect = document.getElementById('modal-q-type');
+  const choiceBox = document.getElementById('modal-options-choice');
+  const binaryBox = document.getElementById('modal-options-binary');
+  const shortBox = document.getElementById('modal-options-short');
+  const numBox = document.getElementById('modal-options-numeric');
+  const matchBox = document.getElementById('modal-options-matching');
+  const orderBox = document.getElementById('modal-options-ordering');
+  const choiceRows = document.getElementById('modal-choice-rows');
+  const matchingRows = document.getElementById('modal-matching-rows');
+  const orderingRows = document.getElementById('modal-ordering-rows');
+
+  // Preview elements
+  const previewBtn = document.getElementById('btn-toggle-preview');
+  const previewBox = document.getElementById('modal-preview-box');
+  const previewContent = document.getElementById('modal-preview-content');
+
+  // Initialize Quill Editor with full rich-text toolbar
+  const quill = new Quill('#modal-quill-editor', {
+    theme: 'snow',
+    placeholder: 'Write the question stem, case scenario, instruction, or prompt with formatting...',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'script': 'sub'}, { 'script': 'super' }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        [{ 'align': [] }],
+        ['blockquote', 'code-block'],
+        ['link', 'clean']
+      ]
+    }
+  });
+
+  // Modal open & close
+  function openModal() {
+    modal.classList.add('active');
+    modalAlert.style.display = 'none';
+    previewBox.style.display = 'none';
+    quill.focus();
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+    modalAlert.style.display = 'none';
+  }
+
+  if (openModalBtn) openModalBtn.addEventListener('click', openModal);
+  if (closeXBtn) closeXBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Reset form inputs for "Save & Add Another"
+  function resetFormForNext() {
+    quill.setText('');
+    document.getElementById('modal-hidden-question-text').value = '';
+    document.getElementById('modal-q-marks').value = '1.00';
+    document.getElementById('modal-q-hint').value = '';
+    document.getElementById('modal-q-explanation').value = '';
+    previewBox.style.display = 'none';
+    modalAlert.style.display = 'none';
+    populateDefaultChoices(typeSelect.value);
+    quill.focus();
+  }
+
+  // Populate dynamic option rows based on question type
+  function populateDefaultChoices(type) {
+    choiceRows.innerHTML = '';
+    matchingRows.innerHTML = '';
+    orderingRows.innerHTML = '';
+
+    const isMultiple = (type === 'MULTIPLE_SELECT');
+    const inputType = isMultiple ? 'checkbox' : 'radio';
+
+    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_SELECT' || type === 'RICH_CONTENT') {
+      for (let i = 0; i < 4; i++) {
+        addChoiceRow(i, inputType, i === 0);
+      }
+    } else if (type === 'MATCHING') {
+      addMatchingPair("Prompt A", "Target 1");
+      addMatchingPair("Prompt B", "Target 2");
+    } else if (type === 'ORDERING') {
+      addOrderingRow("Step 1");
+      addOrderingRow("Step 2");
+      addOrderingRow("Step 3");
+    }
+  }
+
+  function addChoiceRow(index, inputType = 'radio', isChecked = false) {
+    const row = document.createElement('div');
+    row.className = 'choice-row';
+    row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
+    row.innerHTML = `
+      <input type="${inputType}" name="is_correct[]" value="${index}" ${isChecked ? 'checked' : ''} title="Mark as correct answer" style="cursor: pointer; width: 18px; height: 18px;">
+      <input type="text" name="option_text[]" class="form-input" placeholder="Option choice ${index + 1}" style="flex: 1;" required>
+      <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px; font-size: 0.75rem;" title="Remove choice">&times;</button>
+    `;
+    row.querySelector('.remove-row-btn').addEventListener('click', () => {
+      if (choiceRows.querySelectorAll('.choice-row').length > 2) {
+        row.remove();
+        reindexChoiceRows();
+      } else {
+        alert("At least 2 choices are required.");
+      }
+    });
+    choiceRows.appendChild(row);
+  }
+
+  function reindexChoiceRows() {
+    const rows = choiceRows.querySelectorAll('.choice-row');
+    rows.forEach((r, idx) => {
+      const input = r.querySelector('input[type="radio"], input[type="checkbox"]');
+      if (input) input.value = idx;
+      const textInput = r.querySelector('input[type="text"]');
+      if (textInput && !textInput.value) textInput.placeholder = `Option choice ${idx + 1}`;
+    });
+  }
+
+  document.getElementById('modal-add-choice-btn').addEventListener('click', () => {
+    const count = choiceRows.querySelectorAll('.choice-row').length;
+    const isMultiple = (typeSelect.value === 'MULTIPLE_SELECT');
+    addChoiceRow(count, isMultiple ? 'checkbox' : 'radio', false);
+  });
+
+  function addMatchingPair(promptVal = '', targetVal = '') {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
+    row.innerHTML = `
+      <input type="text" name="match_prompt[]" class="form-input" placeholder="Left Prompt" value="${promptVal}" style="flex: 1;" required>
+      <span style="color: var(--text-muted);">&rarr;</span>
+      <input type="text" name="match_target[]" class="form-input" placeholder="Matches Target" value="${targetVal}" style="flex: 1;" required>
+      <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px;">&times;</button>
+    `;
+    row.querySelector('.remove-row-btn').addEventListener('click', () => {
+      if (matchingRows.children.length > 2) row.remove();
+    });
+    matchingRows.appendChild(row);
+  }
+  document.getElementById('modal-add-matching-btn').addEventListener('click', () => addMatchingPair());
+
+  function addOrderingRow(val = '') {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; gap: 0.6rem; align-items: center;';
+    row.innerHTML = `
+      <span style="font-family: var(--font-mono); font-size: 0.8rem; color: #a78bfa;">${orderingRows.children.length + 1}.</span>
+      <input type="text" name="order_item[]" class="form-input" placeholder="Step / Sequence Item" value="${val}" style="flex: 1;" required>
+      <button type="button" class="btn btn-outline btn-sm remove-row-btn" style="color: var(--danger); padding: 4px 8px;">&times;</button>
+    `;
+    row.querySelector('.remove-row-btn').addEventListener('click', () => {
+      if (orderingRows.children.length > 2) row.remove();
+    });
+    orderingRows.appendChild(row);
+  }
+  document.getElementById('modal-add-ordering-btn').addEventListener('click', () => addOrderingRow());
+
+  // Type Selector Change
+  function updateTypeView() {
+    const val = typeSelect.value;
+    choiceBox.style.display = (val === 'SINGLE_CHOICE' || val === 'MULTIPLE_SELECT' || val === 'RICH_CONTENT') ? 'block' : 'none';
+    binaryBox.style.display = (val === 'TRUE_FALSE' || val === 'YES_NO') ? 'block' : 'none';
+    shortBox.style.display = (val === 'SHORT_ANSWER' || val === 'FILL_BLANK') ? 'block' : 'none';
+    numBox.style.display = (val === 'NUMERIC') ? 'block' : 'none';
+    matchBox.style.display = (val === 'MATCHING') ? 'block' : 'none';
+    orderBox.style.display = (val === 'ORDERING') ? 'block' : 'none';
+
+    if (val === 'TRUE_FALSE') {
+      document.getElementById('binary-label-true').innerText = 'True';
+      document.getElementById('binary-label-false').innerText = 'False';
+    } else if (val === 'YES_NO') {
+      document.getElementById('binary-label-true').innerText = 'Yes';
+      document.getElementById('binary-label-false').innerText = 'No';
+    }
+
+    populateDefaultChoices(val);
+  }
+
+  typeSelect.addEventListener('change', updateTypeView);
+  updateTypeView();
+
+  // Preview Student View Toggle
+  previewBtn.addEventListener('click', () => {
+    if (previewBox.style.display === 'none') {
+      const html = quill.root.innerHTML;
+      if (!html || quill.getText().trim() === '') {
+        previewContent.innerHTML = '<em>(Please write some question text above first)</em>';
+      } else {
+        previewContent.innerHTML = html;
+      }
+      previewBox.style.display = 'block';
+      previewBtn.innerText = 'Hide Preview';
+    } else {
+      previewBox.style.display = 'none';
+      previewBtn.innerText = '👁️ Preview Student View';
+    }
+  });
+
+  // Handle Form Submission (AJAX with Save & Add / Save & Add Another)
+  async function submitQuestionForm(keepOpenAfterSave = false) {
+    modalAlert.style.display = 'none';
+
+    // Sync Quill HTML
+    const htmlContent = quill.root.innerHTML;
+    const textPlain = quill.getText().trim();
+    if (!textPlain && !htmlContent.includes('<img')) {
+      modalAlert.className = 'alert alert-danger';
+      modalAlert.innerText = 'Please enter question text before saving.';
+      modalAlert.style.display = 'block';
+      quill.focus();
+      return;
+    }
+
+    document.getElementById('modal-hidden-question-text').value = htmlContent;
+
+    // Validate options for choice questions
+    const qType = typeSelect.value;
+    if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT') {
+      const textInputs = choiceRows.querySelectorAll('input[name="option_text[]"]');
+      let filled = 0;
+      textInputs.forEach(i => { if (i.value.trim()) filled++; });
+      if (filled < 2) {
+        modalAlert.className = 'alert alert-danger';
+        modalAlert.innerText = 'Please provide at least 2 answer choices.';
+        modalAlert.style.display = 'block';
+        return;
+      }
+      const checkedBoxes = choiceRows.querySelectorAll('input[name="is_correct[]"]:checked');
+      if (checkedBoxes.length === 0) {
+        modalAlert.className = 'alert alert-danger';
+        modalAlert.innerText = 'Please mark at least one choice as the correct answer.';
+        modalAlert.style.display = 'block';
+        return;
+      }
+    }
+
+    // Disable buttons & show loading
+    saveBtn.disabled = true;
+    saveAnotherBtn.disabled = true;
+    const originalSaveText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '⏳ Saving...';
+
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to save question.');
+      }
+
+      // Success! Insert newly created question card into the DOM list
+      insertQuestionCard(data.question);
+
+      // Update question count & badges
+      const countSpan = document.getElementById('assessment-q-count');
+      if (countSpan && data.question.total_questions) {
+        countSpan.innerText = data.question.total_questions;
+      }
+
+      // Hide empty placeholder if visible
+      const emptyPlaceholder = document.getElementById('empty-questions-placeholder');
+      if (emptyPlaceholder) emptyPlaceholder.remove();
+
+      // Show toast notification
+      toast.innerText = `✓ ${data.message}`;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+
+      if (keepOpenAfterSave) {
+        resetFormForNext();
+        modalAlert.className = 'alert alert-success';
+        modalAlert.innerText = `✓ Saved Question #${data.question.id} to bank and assessment. Ready for next question!`;
+        modalAlert.style.display = 'block';
+      } else {
+        closeModal();
+      }
+
+    } catch (err) {
+      modalAlert.className = 'alert alert-danger';
+      modalAlert.innerText = err.message || 'An unexpected error occurred while saving.';
+      modalAlert.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveAnotherBtn.disabled = false;
+      saveBtn.innerHTML = originalSaveText;
+    }
+  }
+
+  // Dynamic DOM insertion of newly created question
+  function insertQuestionCard(q) {
+    const container = document.getElementById('attached-questions-container');
+    const card = document.createElement('div');
+    card.className = 'attached-question-card';
+    card.id = `aq-card-${q.id}`;
+    card.style.cssText = 'border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; background: var(--bg-surface); animation: fadeIn 0.3s ease;';
+
+    let optionsHtml = '';
+    if (q.options && q.options.length > 0) {
+      const opts = q.options.map(opt => `
+        <div style="display: flex; align-items: center; gap: 0.35rem; color: ${opt.is_correct ? 'var(--success)' : 'var(--text-muted)'};">
+          <span>${opt.is_correct ? '✓' : '•'}</span>
+          <span>${opt.text}</span>
+          ${opt.match_target ? ` &rarr; <em>${opt.match_target}</em>` : ''}
+        </div>
+      `).join('');
+      optionsHtml = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.85rem; background: rgba(5, 2, 18, 0.4); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light); margin-top: 0.5rem;">
+          ${opts}
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="badge badge-info" style="font-family: var(--font-mono);">#${q.order}</span>
+          <span class="badge badge-secondary" style="font-size: 0.7rem;">${q.type_display}</span>
+          <span style="font-size: 0.8rem; font-weight: 600; color: #a78bfa;">${q.marks} Marks</span>
+          <span class="badge badge-success" style="font-size: 0.65rem;">New</span>
+        </div>
+        <form method="POST" action="${q.remove_url}">
+          <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
+          <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.75rem;">✕ Remove</button>
+        </form>
+      </div>
+
+      <div class="question-display-body" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-main);">
+        ${q.text}
+      </div>
+
+      ${optionsHtml}
+    `;
+
+    container.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  saveBtn.addEventListener('click', () => submitQuestionForm(false));
+  saveAnotherBtn.addEventListener('click', () => submitQuestionForm(true));
+});
+</script>
 {% endblock %}

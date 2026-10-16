@@ -1696,4 +1696,179 @@ h3 { font-size: clamp(1rem, 1.5vw, 1.35rem); }
   }
 }
 
+/* Rich Text Question Content Typography */
+.rich-text-content,
+.question-stem-text,
+.question-display-body {
+  line-height: 1.6;
+  color: var(--text-main);
+  word-break: break-word;
+}
+.rich-text-content p,
+.question-stem-text p,
+.question-display-body p {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+.rich-text-content p:last-child,
+.question-stem-text p:last-child,
+.question-display-body p:last-child {
+  margin-bottom: 0;
+}
+.rich-text-content h1, .question-stem-text h1, .question-display-body h1 { font-size: 1.45rem; font-weight: 700; margin: 0.9rem 0 0.45rem; color: var(--text-main); }
+.rich-text-content h2, .question-stem-text h2, .question-display-body h2 { font-size: 1.25rem; font-weight: 700; margin: 0.8rem 0 0.4rem; color: #a78bfa; }
+.rich-text-content h3, .question-stem-text h3, .question-display-body h3 { font-size: 1.1rem; font-weight: 600; margin: 0.7rem 0 0.35rem; color: #60a5fa; }
+.rich-text-content ul, .question-stem-text ul, .question-display-body ul { padding-left: 1.5rem; margin: 0.5rem 0 0.75rem; list-style-type: disc; }
+.rich-text-content ol, .question-stem-text ol, .question-display-body ol { padding-left: 1.5rem; margin: 0.5rem 0 0.75rem; list-style-type: decimal; }
+.rich-text-content li, .question-stem-text li, .question-display-body li { margin-bottom: 0.35rem; }
+.rich-text-content blockquote, .question-stem-text blockquote, .question-display-body blockquote {
+  border-left: 3px solid var(--primary);
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 0 4px 4px 0;
+}
+.rich-text-content pre, .rich-text-content code,
+.question-stem-text pre, .question-stem-text code,
+.question-display-body pre, .question-display-body code {
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.88em;
+}
+.rich-text-content pre, .question-stem-text pre, .question-display-body pre {
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.rich-text-content table, .question-stem-text table, .question-display-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+.rich-text-content th, .rich-text-content td,
+.question-stem-text th, .question-stem-text td,
+.question-display-body th, .question-display-body td {
+  border: 1px solid var(--border-light);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.rich-text-content th, .question-stem-text th, .question-display-body th {
+  background: rgba(124, 58, 237, 0.15);
+  font-weight: 600;
+}
+
+/* Modal Styling */
+.portal-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(5, 2, 18, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.portal-modal-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+.portal-modal-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg, 12px);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), 0 0 35px var(--primary-glow);
+  transform: translateY(20px) scale(0.98);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+.portal-modal-backdrop.active .portal-modal-container {
+  transform: translateY(0) scale(1);
+}
+.portal-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(124, 58, 237, 0.08);
+}
+.portal-modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.portal-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-surface-elevated);
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Quill Editor Dark Theme Styling */
+.ql-toolbar.ql-snow {
+  background: var(--bg-subtle) !important;
+  border-color: var(--border-light) !important;
+  border-top-left-radius: var(--radius-sm, 6px);
+  border-top-right-radius: var(--radius-sm, 6px);
+}
+.ql-container.ql-snow {
+  background: var(--bt-input-bg, #110a2f) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-main) !important;
+  font-family: var(--font-body) !important;
+  font-size: 0.95rem !important;
+  border-bottom-left-radius: var(--radius-sm, 6px);
+  border-bottom-right-radius: var(--radius-sm, 6px);
+  min-height: 140px;
+}
+.ql-snow .ql-stroke {
+  stroke: var(--text-muted) !important;
+}
+.ql-snow .ql-fill {
+  fill: var(--text-muted) !important;
+}
+.ql-snow .ql-picker {
+  color: var(--text-muted) !important;
+}
+.ql-snow .ql-picker-options {
+  background-color: var(--bg-surface-elevated) !important;
+  border-color: var(--border-light) !important;
+}
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.ql-snow .ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--primary) !important;
+}
+.ql-snow.ql-toolbar button:hover .ql-fill,
+.ql-snow .ql-toolbar button:hover .ql-fill,
+.ql-snow.ql-toolbar button.ql-active .ql-fill,
+.ql-snow .ql-toolbar button.ql-active .ql-fill {
+  fill: var(--primary) !important;
+}
+.ql-editor.ql-blank::before {
+  color: var(--text-muted) !important;
+  font-style: normal !important;
+  opacity: 0.6;
+}
+
 
