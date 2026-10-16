@@ -174,3 +174,41 @@ class ExamAndGradingTestCase(TestCase):
         self.assertIsNone(user1.employee_id)
         self.assertIsNone(user2.employee_id)
 
+    def test_theme_toggle_on_employee_assessment_and_instruction_screens(self):
+        # Verify employee is regular user without admin privileges
+        self.assertFalse(self.candidate.is_staff)
+        self.assertFalse(self.candidate.is_superuser)
+        self.assertEqual(self.candidate.role, Role.EMPLOYEE)
+
+        # 1. Test instruction screen (before test starts)
+        inst_resp = self.client.get(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}))
+        self.assertEqual(inst_resp.status_code, 200)
+        self.assertContains(inst_resp, 'id="theme-toggle-btn"')
+        self.assertContains(inst_resp, 'portal.js')
+        self.assertContains(inst_resp, f'name="portal-user-id" content="{self.candidate.id}"')
+        self.assertContains(inst_resp, 'breakthru-theme')
+
+        # 2. Start Exam Attempt
+        start_resp = self.client.post(reverse('exam:start_instruction', kwargs={'assessment_id': self.assessment.id}))
+        self.assertEqual(start_resp.status_code, 302)
+        attempt = AssessmentAttempt.objects.filter(user=self.candidate, assessment=self.assessment).first()
+        self.assertIsNotNone(attempt)
+
+        # 3. Test active test-taking screen (take_exam.html)
+        take_resp = self.client.get(reverse('exam:take_assessment', kwargs={'attempt_id': attempt.id}))
+        self.assertEqual(take_resp.status_code, 200)
+        # Verify theme toggle elements in exam header
+        self.assertContains(take_resp, 'id="theme-toggle-btn"')
+        self.assertContains(take_resp, 'id="theme-icon"')
+        self.assertContains(take_resp, 'class="theme-label"')
+        self.assertContains(take_resp, 'theme-toggle')
+        # Verify portal.js is loaded
+        self.assertContains(take_resp, '/static/js/portal.js')
+        # Verify early head script and meta tag for preventing flicker and user preference isolation
+        self.assertContains(take_resp, f'name="portal-user-id" content="{self.candidate.id}"')
+        self.assertContains(take_resp, 'localStorage.getItem(\'breakthru-theme-\' + uid)')
+        # Verify light and dark mode CSS styling is present
+        self.assertContains(take_resp, '[data-theme="light"]')
+        self.assertContains(take_resp, '--bg-page')
+
+

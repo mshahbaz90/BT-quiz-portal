@@ -3,10 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="portal-user-id" content="{{ request.user.id|default:'' }}">
   <title>{% block title %}{{ COMPANY_NAME }} Assessments{% endblock %}</title>
   <meta name="description" content="BreakThru internal learning and assessment platform.">
   <link rel="icon" type="image/svg+xml" href="/static/img/breakthru-icon.svg">
   <link rel="stylesheet" href="/static/css/portal.css">
+  <script>
+    (function() {
+      try {
+        var metaUser = document.querySelector('meta[name="portal-user-id"]');
+        var uid = metaUser ? metaUser.getAttribute('content') : '';
+        var saved = uid ? localStorage.getItem('breakthru-theme-' + uid) : null;
+        if (!saved) {
+          saved = localStorage.getItem('breakthru-theme');
+        }
+        var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = saved || (sysDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch(e) {}
+    })();
+  </script>
   {% block extra_head %}{% endblock %}
 </head>
 <body class="auth-page {% block body_class %}{% endblock %}">

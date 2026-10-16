@@ -115,6 +115,22 @@
   --bt-input-bg: #ffffff;
   --bt-input-border: #64748b;
   --bt-input-focus: #7c3aed;
+
+  --info: #0284c7;
+  --info-bg: #f0f9ff;
+  --info-border: #bae6fd;
+
+  --success: #059669;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
 }
 
 /* CSS Reset & Base Rules */

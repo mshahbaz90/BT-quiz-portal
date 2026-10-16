@@ -1,38 +1,64 @@
 // BreakThru Portal Core Client JS
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Theme Switcher Logic (supports both #theme-toggle-btn and #themeToggle)
-  const themeToggleBtns = document.querySelectorAll('#theme-toggle-btn, #themeToggle, .theme-toggle');
-  const storedTheme = localStorage.getItem('breakthru-theme') || 
-                      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  // Theme Switcher Logic (supports #theme-toggle-btn, #themeToggle, .theme-toggle)
+  const metaUser = document.querySelector('meta[name="portal-user-id"]');
+  const userId = metaUser ? metaUser.getAttribute('content') : (document.body?.dataset?.userId || '');
+  const userKey = userId ? `breakthru-theme-${userId}` : 'breakthru-theme';
+
+  let storedTheme = userId ? localStorage.getItem(userKey) : null;
+  if (!storedTheme) {
+    storedTheme = localStorage.getItem('breakthru-theme') || 
+                  (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
   
   document.documentElement.setAttribute('data-theme', storedTheme);
 
   function applyTheme(target) {
     document.documentElement.setAttribute('data-theme', target);
+    if (userId) {
+      localStorage.setItem(`breakthru-theme-${userId}`, target);
+    }
     localStorage.setItem('breakthru-theme', target);
     updateThemeDisplays(target);
     window.dispatchEvent(new CustomEvent('breakthru:themechange', { detail: { theme: target } }));
   }
 
   function updateThemeDisplays(theme) {
-    const icon = document.getElementById('theme-icon');
-    if (icon) {
+    document.querySelectorAll('#theme-icon, .theme-icon').forEach(icon => {
       icon.textContent = theme === 'dark' ? '☀️' : '🌙';
-    }
-    const btToggle = document.getElementById('themeToggle');
-    if (btToggle) {
+    });
+    document.querySelectorAll('.theme-label').forEach(label => {
+      label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    });
+    document.querySelectorAll('#themeToggle').forEach(btToggle => {
       btToggle.innerHTML = theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
-    }
+    });
+    document.querySelectorAll('#theme-toggle-btn, #themeToggle, .theme-toggle').forEach(btn => {
+      const nextTheme = theme === 'dark' ? 'Light' : 'Dark';
+      btn.setAttribute('title', `Switch to ${nextTheme} Mode`);
+      btn.setAttribute('aria-label', `Switch to ${nextTheme} Mode`);
+    });
   }
 
+  const themeToggleBtns = document.querySelectorAll('#theme-toggle-btn, #themeToggle, .theme-toggle');
   themeToggleBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
       const target = current === 'dark' ? 'light' : 'dark';
       applyTheme(target);
     });
   });
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      const hasSavedTheme = userId ? localStorage.getItem(`breakthru-theme-${userId}`) : localStorage.getItem('breakthru-theme');
+      if (!hasSavedTheme) {
+        applyTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  }
 
   updateThemeDisplays(storedTheme);
 
