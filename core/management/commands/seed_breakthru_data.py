@@ -66,6 +66,7 @@ class Command(BaseCommand):
             self.stdout.write("Created Super Admin: admin / BreakThru2026!")
 
         # Trainer
+        trainer = None
         if "trainer.ali" not in deleted_usernames:
             trainer = User.objects.filter(username="trainer.ali").first()
             if not trainer:
@@ -82,7 +83,11 @@ class Command(BaseCommand):
                 )
                 self.stdout.write("Created Trainer: trainer.ali / BreakThru2026!")
 
+        if not trainer:
+            trainer = User.objects.filter(role=Role.TRAINER).first() or admin_user
+
         # Team Lead
+        lead = None
         if "lead.kamran" not in deleted_usernames:
             lead = User.objects.filter(username="lead.kamran").first()
             if not lead:
@@ -98,11 +103,13 @@ class Command(BaseCommand):
                     department=it_dept,
                     team=backend_team
                 )
-                backend_team.lead = lead
-                backend_team.save()
                 self.stdout.write("Created Team Lead: lead.kamran / BreakThru2026!")
+        if lead:
+            backend_team.lead = lead
+            backend_team.save()
 
         # Candidates / Employees
+        emp1 = None
         if "emp.zara" not in deleted_usernames:
             emp1 = User.objects.filter(username="emp.zara").first()
             if not emp1:
@@ -120,6 +127,7 @@ class Command(BaseCommand):
                 )
                 self.stdout.write("Created Employee: emp.zara / BreakThru2026!")
 
+        emp2 = None
         if "emp.bilal" not in deleted_usernames:
             emp2 = User.objects.filter(username="emp.bilal").first()
             if not emp2:
