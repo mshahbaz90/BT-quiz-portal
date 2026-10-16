@@ -11,4 +11,4 @@ fi
 
 python manage.py migrate --noinput
 python manage.py seed_breakthru_data
-exec gunicorn breakthru_portal.wsgi:application --bind 0.0.0.0:$PORT
+exec gunicorn breakthru_portal.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 2 --timeout 120
